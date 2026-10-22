@@ -12,6 +12,11 @@ public static class LocalTools
     public static async Task<string> Run(string executable, string[] args, string? input, CancellationToken token)
     {
         var info = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
+        if (Path.GetFileNameWithoutExtension(executable).StartsWith("python", StringComparison.OrdinalIgnoreCase))
+        {
+            info.Environment.Remove("PYTHONHOME"); info.Environment.Remove("PYTHONPATH");
+            info.Environment["PYTHONDONTWRITEBYTECODE"] = "1";
+        }
         foreach (var arg in args) info.ArgumentList.Add(arg);
         using var process = new Process { StartInfo = info };
         try { process.Start(); } catch (System.ComponentModel.Win32Exception) { throw new InvalidOperationException("找不到或无法启动本地程序，请在设置中检查路径及依赖。"); }

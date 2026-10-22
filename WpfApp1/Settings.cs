@@ -17,8 +17,8 @@ public sealed class Settings
     public string Tesseract { get; set; } = "tesseract";
     public string OcrLanguages { get; set; } = "eng";
     public int OcrEngine { get; set; }
-    public string OcrPython { get; set; } = FindProjectAsset(".runtime", "ocr-env", "Scripts", "python.exe");
-    public string OcrGpuPython { get; set; } = FindProjectAsset(".runtime", "ocr-gpu-env", "Scripts", "python.exe");
+    public string OcrPython { get; set; } = FindPython(".runtime", "ocr-env");
+    public string OcrGpuPython { get; set; } = FindPython(".runtime", "ocr-gpu-env");
     public LocalDeviceMode OcrDeviceMode { get; set; } = LocalDeviceMode.Auto;
     public string SelectionKey { get; set; } = "T";
     public string CaptureKey { get; set; } = "O";
@@ -33,6 +33,7 @@ public sealed class Settings
         ? mode : UseGpu ? LocalDeviceMode.Auto : LocalDeviceMode.Cpu;
     public int IdleMinutes { get; set; } = 5;
     public bool AutoSelectionPopup { get; set; } = true;
+    public bool ClipboardSelectionFallback { get; set; } = true;
     public bool DarkMode { get; set; }
     public double ReadingFontSize { get; set; } = 19;
     [JsonIgnore] public string ApiKey { get; set; } = "";
@@ -52,12 +53,41 @@ public sealed class Settings
     }
     private static string FindLocalPython()
     {
+        var portable = FindProjectAsset(".venv", "python.exe");
+        if (File.Exists(portable)) return portable;
         for (var folder = new DirectoryInfo(AppContext.BaseDirectory); folder != null; folder = folder.Parent)
         {
             var executable = Path.Combine(folder.FullName, ".venv", "Scripts", "python.exe");
             if (File.Exists(executable)) return executable;
         }
         return "python";
+    }
+    private static string FindPython(params string[] parts)
+    {
+        var portable = FindProjectAsset(Path.Combine(parts), "python.exe");
+        return File.Exists(portable) ? portable : FindProjectAsset(Path.Combine(parts), "Scripts", "python.exe");
+    }
+    private static void ResolveInstalledAssets(Settings result)
+    {
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "bundle.json"))) return;
+        var bundled = new Settings();
+        static string Resolve(string configured, string packaged)
+        {
+            // Keep explicit custom locations; remap the known packaged asset
+            // names when importing settings from a development/older install.
+            string normalized = configured.Replace('/', '\\');
+            bool managed = string.IsNullOrWhiteSpace(configured) || !File.Exists(configured)
+                || normalized.Contains("\\.runtime\\", StringComparison.OrdinalIgnoreCase)
+                || normalized.Contains("\\.venv\\", StringComparison.OrdinalIgnoreCase)
+                || normalized.EndsWith("\\models\\hy-mt2\\Hy-MT2-1.8B-Q4_K_M.gguf", StringComparison.OrdinalIgnoreCase);
+            return managed && File.Exists(packaged) ? packaged : configured;
+        }
+        result.Python = Resolve(result.Python, bundled.Python);
+        result.OcrPython = Resolve(result.OcrPython, bundled.OcrPython);
+        result.OcrGpuPython = Resolve(result.OcrGpuPython, bundled.OcrGpuPython);
+        result.LlamaServer = Resolve(result.LlamaServer, bundled.LlamaServer);
+        result.CpuLlamaServer = Resolve(result.CpuLlamaServer, bundled.CpuLlamaServer);
+        result.LocalModel = Resolve(result.LocalModel, bundled.LocalModel);
     }
     public static Settings Load()
     {
@@ -68,6 +98,7 @@ public sealed class Settings
             return defaults;
         }
         var result = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new();
+        ResolveInstalledAssets(result);
         result.ApiKey = Unprotect(result.ProtectedApiKey);
         result.OnlineKey = Unprotect(result.ProtectedOnlineKey);
         return result;

@@ -16,13 +16,17 @@ internal sealed class SelectionMonitor : IDisposable
     private IntPtr hook;
     private Native.ScreenPoint down, previousUp, anchor;
     private uint previousTime;
+    private long downTimestamp, selectionGestureAt;
     private bool pressed, disposed;
+    private bool ownInteraction;
     private int revision;
     private IntPtr foreground;
-    private Task<string>? reading;
+    private Task<Native.TextSelection>? reading;
     public bool Enabled { get; set; } = true;
-    public event Action<string, Native.ScreenPoint>? SelectionReady;
-    public event Action<Native.ScreenPoint>? PointerPressed;
+    public bool UseClipboardFallback { get; set; } = true;
+    public event Action<string, Native.ScreenPoint, long>? SelectionReady;
+    public Func<Native.ScreenPoint, bool>? IsPopupPoint { get; set; }
+    public event Action<IntPtr, long, bool>? PointerPressed;
 
     public SelectionMonitor(Dispatcher dispatcher)
     {
@@ -45,12 +49,32 @@ internal sealed class SelectionMonitor : IDisposable
                 if (message.ToInt32() == 0x0201)
                 {
                     down = item.Point; pressed = true; revision++;
+                    downTimestamp = Stopwatch.GetTimestamp();
+                    long pointerDownAt = downTimestamp;
                     var point = item.Point;
-                    dispatcher.BeginInvoke(new Action(() => { if (!disposed) { debounce.Stop(); PointerPressed?.Invoke(point); } }));
+                    // Hit-test now, before activation, layout or queued WPF input.
+                    bool insidePopup = IsPopupPoint?.Invoke(point) == true;
+                    // Snapshot the target before WPF processes the click: expanding
+                    // the popup can move its rectangle before this queued callback.
+                    var hit = Native.WindowFromPoint(point);
+                    var target = Native.GetAncestor(hit, 2); // GA_ROOT
+                    if (target == IntPtr.Zero) target = hit;
+                    Native.GetWindowThreadProcessId(target, out var targetProcess);
+                    ownInteraction = insidePopup || targetProcess == (uint)Environment.ProcessId;
+                    // Input must reach the popup before any outside-click dismissal.
+                    // Normal priority runs ahead of WPF Input and can hide the
+                    // launcher before its mouse-down handler gets the click.
+                    dispatcher.BeginInvoke(DispatcherPriority.Background,
+                        new Action(() => { if (!disposed) { debounce.Stop(); PointerPressed?.Invoke(target, pointerDownAt, insidePopup); } }));
                 }
                 else if (message.ToInt32() == 0x0202 && pressed)
                 {
                     pressed = false;
+                    if (ownInteraction)
+                    {
+                        previousTime = 0;
+                        return CallNextHookEx(hook, code, message, data);
+                    }
                     bool dragged = Distance(down, item.Point) > 25;
                     bool doubleClick = unchecked(item.Time - previousTime) <= GetDoubleClickTime() && Distance(previousUp, item.Point) < 36;
                     previousUp = item.Point; previousTime = item.Time;
@@ -61,10 +85,11 @@ internal sealed class SelectionMonitor : IDisposable
                         if (target != IntPtr.Zero && processId != (uint)Environment.ProcessId)
                         {
                             var point = item.Point;
+                            long gestureAt = downTimestamp;
                             dispatcher.BeginInvoke(new Action(() =>
                             {
                                 if (disposed || !Enabled) return;
-                                anchor = point; foreground = target; debounce.Stop(); debounce.Start();
+                                anchor = point; foreground = target; selectionGestureAt = gestureAt; debounce.Stop(); debounce.Start();
                             }));
                         }
                     }
@@ -77,14 +102,24 @@ internal sealed class SelectionMonitor : IDisposable
     private async Task ReadSelection()
     {
         if (!Enabled || disposed || pressed || Native.GetForegroundWindow() != foreground) return;
-        if (reading is { IsCompleted: false }) return; // Bound stalled UIA calls to one.
+        bool automationBusy = reading is { IsCompleted: false };
+        if (automationBusy && !UseClipboardFallback) return; // Bound stalled UIA calls to one.
         int current = revision; var target = foreground; var point = anchor;
-        reading = Task.Run(Native.SelectedText);
+        long gestureAt = selectionGestureAt;
+        if (!automationBusy) reading = Task.Run(() => Native.ReadSelectionAt(point, target));
         try
         {
-            var text = await reading.WaitAsync(TimeSpan.FromSeconds(2));
-            if (!disposed && Enabled && current == revision && Native.GetForegroundWindow() == target && !string.IsNullOrWhiteSpace(text))
-                SelectionReady?.Invoke(text, point);
+            Native.TextSelection selection = new("", null);
+            if (!automationBusy)
+            {
+                try { selection = await reading!.WaitAsync(TimeSpan.FromSeconds(2)); }
+                catch (TimeoutException) { /* Copy fallback can still work if UIA stalls. */ }
+            }
+            bool Current() => !disposed && Enabled && current == revision && !pressed && Native.GetForegroundWindow() == target;
+            if (Current() && UseClipboardFallback && selection.AllowCopy && string.IsNullOrWhiteSpace(selection.Text))
+                selection = await ClipboardSelection.Read(point, target, Current);
+            if (!disposed && Enabled && current == revision && Native.GetForegroundWindow() == target && !string.IsNullOrWhiteSpace(selection.Text))
+                SelectionReady?.Invoke(selection.Text, selection.Anchor ?? point, gestureAt);
         }
         catch (Exception) { /* Unsupported/slow applications remain silent. */ }
     }

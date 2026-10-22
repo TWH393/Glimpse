@@ -177,6 +177,13 @@
                         <StackPanel>
                             <Border Style="{StaticResource Card}" Margin="0,0,0,18">
                                 <StackPanel>
+                                    <TextBlock Text="启动与后台" FontSize="17" FontWeight="SemiBold" />
+                                    <CheckBox x:Name="StartupCheck" Content="开机自启动 · 登录 Windows 时启动 Glimpse" Click="Startup_Click" Margin="0,16,0,8" />
+                                    <TextBlock x:Name="StartupStatusText" Text="仅当前用户生效，无需管理员权限。自启动时收起到托盘；双击托盘图标打开。" Style="{StaticResource Hint}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,18">
+                                <StackPanel>
                                     <TextBlock Text="本地翻译运行模式" FontSize="17" FontWeight="SemiBold" />
                                     <TextBlock Text="切换后自动保存并重新加载 Hy-MT2。仅影响本地 Hy-MT2 引擎。" Style="{StaticResource Hint}" Margin="0,6,0,16" />
                                     <ListBox x:Name="DeviceModeBox" SelectedIndex="0" HorizontalAlignment="Left" Background="{DynamicResource SoftSurface}" BorderThickness="0" Padding="5" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -301,7 +308,8 @@
                                 <StackPanel>
                                     <TextBlock Text="顺手的快捷键" FontSize="17" FontWeight="SemiBold" />
                                     <CheckBox x:Name="AutoPopupCheck" Content="选中文字后自动显示翻译悬浮窗" IsChecked="True" Margin="0,16,0,4" Click="AutoPopup_Click" />
-                                    <TextBlock Text="只显示原文与翻译按钮，点击后才请求翻译；译文只出现在悬浮窗。" Style="{StaticResource Hint}" Margin="0,4,0,8" />
+                                    <TextBlock Text="只显示翻译按钮，点击后展开译文，不展示原文。" Style="{StaticResource Hint}" Margin="0,4,0,8" />
+                                    <CheckBox x:Name="ClipboardFallbackCheck" Content="兼容取词：接口无结果时临时复制，读取后恢复剪贴板" IsChecked="True" Click="ClipboardFallback_Click" Margin="0,8,0,8" />
                                     <TextBlock Text="固定使用 Ctrl + Alt，再加一个你喜欢的键。支持 A–Z 或 F1–F12。" Style="{StaticResource Hint}" Margin="0,6,0,20" />
                                     <WrapPanel>
                                         <TextBlock Text="选中文字" VerticalAlignment="Center" Foreground="{DynamicResource Ink}" Margin="0,0,16,0" />

@@ -14,6 +14,10 @@ public partial class MainWindow : Window
     private CancellationTokenSource? preload;
     private CancellationTokenSource? captureRequest;
     private bool shuttingDown;
+    private bool initialLoad = true;
+    private bool exitRequested;
+    private ClosePrompt? closePrompt;
+    internal bool IsDarkMode => DarkModeCheck.IsChecked == true;
     private int generation;
     private bool capturing;
     private System.Windows.Forms.NotifyIcon? tray;
@@ -41,17 +45,96 @@ public partial class MainWindow : Window
             CpuLlamaServerBox.Text = s.CpuLlamaServer;
             DeviceModeBox.SelectedIndex = (int)s.EffectiveDeviceMode; IdleMinutesBox.Text = s.IdleMinutes.ToString();
             AutoPopupCheck.IsChecked = s.AutoSelectionPopup;
+            ClipboardFallbackCheck.IsChecked = s.ClipboardSelectionFallback;
             EngineBox.SelectedIndex = Math.Clamp(s.Engine, 0, 3); OfflineCheck.IsChecked = s.Offline;
         }
         catch (Exception) { StatusText.Text = "设置读取失败，请重新配置并保存。"; }
+        RefreshStartupState();
         SourceInitialized += (_, _) => InitializeNative();
         EngineBox.SelectionChanged += Engine_Changed;
         DeviceModeBox.SelectionChanged += DeviceMode_Changed;
         DarkModeCheck.Click += (_, _) => UpdateAppearance();
         TextSizeSlider.ValueChanged += (_, _) => UpdateAppearance();
         LocalLlm.ResidencyChanged += ModelResidencyChanged;
-        Loaded += async (_, _) => await PreloadSelectedModel();
+        Loaded += async (_, _) =>
+        {
+            if (initialLoad)
+            {
+                initialLoad = false;
+                if (StartupRegistration.LaunchedAtLogin) Hide();
+            }
+            await PreloadSelectedModel();
+        };
         Closed += (_, _) => { shuttingDown = true; captureRequest?.Cancel(); preload?.Cancel(); LocalLlm.ResidencyChanged -= ModelResidencyChanged; selectionMonitor?.Dispose(); selectionPopup?.Close(); pending?.Cancel(); LocalLlm.Shutdown(); tray?.Dispose(); trayIcon?.Dispose(); source?.RemoveHook(WindowHook); Native.Unregister(new WindowInteropHelper(this).Handle); };
+    }
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (!exitRequested)
+        {
+            if (closePrompt != null) { e.Cancel = true; return; }
+            var prompt = new ClosePrompt { Owner = this };
+            closePrompt = prompt;
+            try { prompt.ShowDialog(); }
+            finally { closePrompt = null; }
+            if (!exitRequested)
+            {
+                if (prompt.Decision == CloseDecision.Exit) exitRequested = true;
+                else
+                {
+                    e.Cancel = true;
+                    if (prompt.Decision == CloseDecision.Minimize)
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (!shuttingDown)
+                            {
+                                ShowInTaskbar = true;
+                                WindowState = WindowState.Minimized;
+                            }
+                        }));
+                }
+            }
+        }
+        base.OnClosing(e);
+    }
+    private void RequestExit()
+    {
+        exitRequested = true;
+        if (closePrompt != null) closePrompt.Close();
+        else Close();
+    }
+    internal void AllowSystemExit()
+    {
+        exitRequested = true;
+        closePrompt?.Close();
+    }
+    private void RefreshStartupState()
+    {
+        try
+        {
+            StartupCheck.IsChecked = StartupRegistration.IsEnabled();
+            StartupStatusText.Text = (StartupCheck.IsChecked == true ? "已登记当前用户的自启动项。" : "自启动未开启。")
+                + "登录时收起到托盘，双击托盘图标打开；切换立即生效。移动程序后请重新关闭再开启此选项。";
+        }
+        catch (Exception ex)
+        {
+            StartupCheck.IsChecked = false;
+            StartupStatusText.Text = "无法读取启动项：" + ex.Message;
+        }
+    }
+    private void Startup_Click(object sender, RoutedEventArgs e)
+    {
+        bool enabled = StartupCheck.IsChecked == true;
+        try
+        {
+            StartupRegistration.SetEnabled(enabled);
+            RefreshStartupState();
+            StatusText.Text = enabled ? "已开启开机自启动，下次登录 Windows 时生效。" : "已关闭开机自启动。";
+        }
+        catch (Exception ex)
+        {
+            RefreshStartupState();
+            StatusText.Text = "修改自启动失败：" + ex.Message;
+        }
     }
     private void InitializeNative()
     {
@@ -61,7 +144,7 @@ public partial class MainWindow : Window
         StatusText.Text = Native.Register(handle, SelectionKeyBox.Text, CaptureKeyBox.Text);
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("打开 Glimpse", null, (_, _) => Dispatcher.Invoke(Reveal));
-        menu.Items.Add("退出", null, (_, _) => Dispatcher.Invoke(Close));
+        menu.Items.Add("退出", null, (_, _) => Dispatcher.Invoke(RequestExit));
         using (var iconStream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/glimpse.ico")).Stream)
         using (var resourceIcon = new System.Drawing.Icon(iconStream, System.Windows.Forms.SystemInformation.SmallIconSize))
             trayIcon = (System.Drawing.Icon)resourceIcon.Clone();
@@ -69,14 +152,20 @@ public partial class MainWindow : Window
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(Reveal);
         try
         {
-            selectionMonitor = new SelectionMonitor(Dispatcher) { Enabled = AutoPopupCheck.IsChecked == true };
-            selectionMonitor.SelectionReady += (text, point) =>
+            selectionMonitor = new SelectionMonitor(Dispatcher)
             {
-                if (!capturing && selectionPopup?.IsPinned != true) PresentSelection(text, point);
+                Enabled = AutoPopupCheck.IsChecked == true,
+                UseClipboardFallback = ClipboardFallbackCheck.IsChecked == true
             };
-            selectionMonitor.PointerPressed += point =>
+            selectionMonitor.IsPopupPoint = point => selectionPopup?.ContainsAtPointerDown(point) == true;
+            selectionMonitor.SelectionReady += (text, point, pointerDownAt) =>
             {
-                if (selectionPopup is { IsVisible: true } && !selectionPopup.Contains(point)) selectionPopup.Dismiss();
+                if (!capturing && (selectionPopup?.CanReplaceSelection(pointerDownAt) ?? true)) PresentSelection(text, point);
+            };
+            selectionMonitor.PointerPressed += (target, pointerDownAt, insidePopup) =>
+            {
+                if (!insidePopup && target != IntPtr.Zero && selectionPopup is { IsVisible: true }
+                    && !selectionPopup.OwnsWindow(target)) selectionPopup.DismissFromOutside(pointerDownAt);
             };
         }
         catch (System.ComponentModel.Win32Exception ex) { StatusText.Text = ex.Message; }
@@ -139,6 +228,7 @@ public partial class MainWindow : Window
         UseGpu = DeviceModeBox.SelectedIndex != 2,
         IdleMinutes = int.TryParse(IdleMinutesBox.Text, out var idle) ? Math.Clamp(idle, 0, 60) : 5,
         AutoSelectionPopup = AutoPopupCheck.IsChecked == true,
+        ClipboardSelectionFallback = ClipboardFallbackCheck.IsChecked == true,
         DarkMode = DarkModeCheck.IsChecked == true,
         ReadingFontSize = TextSizeSlider.Value
     };
@@ -230,14 +320,18 @@ public partial class MainWindow : Window
         var foreground = Native.GetForegroundWindow();
         try
         {
-            var text = await Task.Run(Native.SelectedText).WaitAsync(TimeSpan.FromSeconds(3));
+            Native.TextSelection selection;
+            try { selection = await Task.Run(() => Native.ReadSelectionAt(point, foreground)).WaitAsync(TimeSpan.FromSeconds(3)); }
+            catch (TimeoutException) when (ClipboardFallbackCheck.IsChecked == true) { selection = new("", null); }
+            if (ClipboardFallbackCheck.IsChecked == true && selection.AllowCopy && string.IsNullOrWhiteSpace(selection.Text))
+                selection = await ClipboardSelection.Read(point, foreground, () => !shuttingDown && Native.GetForegroundWindow() == foreground);
             if (Native.GetForegroundWindow() != foreground) return;
-            if (string.IsNullOrWhiteSpace(text))
+            if (string.IsNullOrWhiteSpace(selection.Text))
             {
-                PresentSelection("", point, "此窗口未提供选中文字，可使用框选识字。不会自动翻译。");
+                PresentSelection("", point, "未能读取选中文字，请确认选区可复制，或使用框选识字。不会自动翻译。");
                 return;
             }
-            PresentSelection(text, point);
+            PresentSelection(selection.Text, selection.Anchor ?? point);
         }
         catch (Exception ex) { PresentSelection("", point, "取词失败：" + ex.Message); }
     }
@@ -253,6 +347,10 @@ public partial class MainWindow : Window
     {
         if (selectionMonitor != null) selectionMonitor.Enabled = AutoPopupCheck.IsChecked == true;
         if (AutoPopupCheck.IsChecked != true) selectionPopup?.Dismiss(force: true);
+    }
+    private void ClipboardFallback_Click(object sender, RoutedEventArgs e)
+    {
+        if (selectionMonitor != null) selectionMonitor.UseClipboardFallback = ClipboardFallbackCheck.IsChecked == true;
     }
     private async Task CaptureRegion()
     {

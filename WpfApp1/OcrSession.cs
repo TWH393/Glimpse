@@ -38,6 +38,8 @@ public sealed class OcrSession : IDisposable
             WorkingDirectory = Path.GetDirectoryName(python)!
         };
         foreach (var argument in new[] { "-X", "utf8", "-u", script, "--device", gpu ? "gpu" : "cpu" }) info.ArgumentList.Add(argument);
+        info.Environment.Remove("PYTHONHOME"); info.Environment.Remove("PYTHONPATH");
+        info.Environment["PYTHONDONTWRITEBYTECODE"] = "1";
         process = new Process { StartInfo = info };
         try
         {

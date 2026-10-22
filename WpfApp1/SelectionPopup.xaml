@@ -1,40 +1,44 @@
 <Window x:Class="WpfApp1.SelectionPopup"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:Width="390" d:Height="270"
         Title="Glimpse · 划词翻译" Icon="Assets/glimpse.ico"
-        Width="390" SizeToContent="Height" WindowStyle="None" ResizeMode="NoResize"
+        Width="118" SizeToContent="Height" WindowStyle="None" ResizeMode="NoResize"
         AllowsTransparency="True" Background="Transparent" ShowInTaskbar="False"
         ShowActivated="False" Topmost="True" WindowStartupLocation="Manual"
         FontFamily="Segoe UI, Microsoft YaHei UI" Foreground="{DynamicResource Ink}"
         UseLayoutRounding="True" KeyDown="Window_KeyDown">
     <Border Padding="9" Background="Transparent">
-        <Border CornerRadius="15" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" Padding="17,14">
+        <Border x:Name="PopupSurface" CornerRadius="12" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" Padding="5" d:Padding="17,14">
             <Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.13" Color="#303858" /></Border.Effect>
             <StackPanel>
-                <Grid Margin="0,0,0,12" MouseLeftButtonDown="Header_Drag">
-                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Image Source="Assets/glimpse.png" Width="20" Height="20" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Glimpse" FontSize="13" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
+                <Button x:Name="LauncherButton" Content="翻译" Style="{StaticResource PrimaryButton}" Padding="14,8" PreviewMouseLeftButtonDown="Launcher_PreviewMouseLeftButtonDown" Click="Translate_Click" ToolTip="翻译选中的文字" AutomationProperties.Name="翻译选中的文字" d:Visibility="Collapsed" />
+                <StackPanel x:Name="ExpandedPanel" Visibility="Collapsed" d:Visibility="Visible">
+                    <Grid Margin="0,0,0,12" MouseLeftButtonDown="Header_Drag">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Image Source="Assets/glimpse.png" Width="20" Height="20" RenderOptions.BitmapScalingMode="HighQuality" />
+                            <TextBlock Text="Glimpse" FontSize="13" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <CheckBox x:Name="PinPopup" Content="固定" VerticalAlignment="Center" Margin="0,0,9,0" />
+                            <Button Content="×" Click="Close_Click" Style="{StaticResource QuietButton}" Padding="6,1" FontSize="19" ToolTip="关闭" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel x:Name="TranslationPanel">
+                        <TextBox x:Name="TranslatedText" Style="{StaticResource Editor}" Foreground="{DynamicResource TranslationInk}" MaxHeight="230" MinHeight="45" IsReadOnly="True" d:Text="译文会显示在这里。选中文字后点击翻译，即可展开阅读。" />
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <CheckBox x:Name="PinPopup" Content="固定" VerticalAlignment="Center" Margin="0,0,9,0" />
-                        <Button Content="×" Click="Close_Click" Style="{StaticResource QuietButton}" Padding="6,1" FontSize="19" ToolTip="关闭" />
-                    </StackPanel>
-                </Grid>
-                <TextBox x:Name="SelectedText" Style="{StaticResource Editor}" MaxHeight="95" IsReadOnly="True" />
-                <StackPanel x:Name="TranslationPanel" Visibility="Collapsed" Margin="0,14,0,0">
-                    <Border Height="1" Background="{DynamicResource Line}" Margin="0,0,0,13" />
-                    <TextBox x:Name="TranslatedText" Style="{StaticResource Editor}" Foreground="{DynamicResource TranslationInk}" MaxHeight="230" IsReadOnly="True" />
+                    <TextBlock x:Name="PopupStatus" Text="点击翻译后显示译文" Style="{StaticResource Hint}" Margin="0,12,0,12" MaxHeight="72" TextTrimming="CharacterEllipsis" />
+                    <Grid>
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="PopupTranslate" Content="翻译 →" Style="{StaticResource PrimaryButton}" Padding="15,8" Click="Translate_Click" />
+                            <Button x:Name="PopupCancel" Content="取消" Style="{StaticResource QuietButton}" Padding="10,8" Margin="5,0,0,0" Visibility="Collapsed" Click="Cancel_Click" />
+                        </StackPanel>
+                        <Button x:Name="PopupCopy" Content="复制译文" Style="{StaticResource QuietButton}" Padding="10,8" HorizontalAlignment="Right" IsEnabled="False" Click="Copy_Click" />
+                    </Grid>
                 </StackPanel>
-                <TextBlock x:Name="PopupStatus" Text="点击翻译后显示译文" Style="{StaticResource Hint}" Margin="0,12,0,12" MaxHeight="72" TextTrimming="CharacterEllipsis" />
-                <Grid>
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="PopupTranslate" Content="翻译 →" Style="{StaticResource PrimaryButton}" Padding="15,8" Click="Translate_Click" />
-                        <Button x:Name="PopupCancel" Content="取消" Style="{StaticResource QuietButton}" Padding="10,8" Margin="5,0,0,0" Visibility="Collapsed" Click="Cancel_Click" />
-                    </StackPanel>
-                    <Button x:Name="PopupCopy" Content="复制译文" Style="{StaticResource QuietButton}" Padding="10,8" HorizontalAlignment="Right" IsEnabled="False" Click="Copy_Click" />
-                </Grid>
             </StackPanel>
         </Border>
     </Border>
