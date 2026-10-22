@@ -2,7 +2,7 @@
 
 English | [简体中文](README.md)
 
-A Windows translation utility prototype built with C#, .NET 10 and WPF. It includes selected-text capture, region capture, a translation window, a tray menu and configurable translation engines.
+A Windows desktop translator with selected-text translation, screenshot OCR, configurable API/online services and local offline models. Built with C#, .NET 10 and WPF.
 
 Repository: [TWH393/Glimpse](https://github.com/TWH393/Glimpse). The selection popup is experimental with known issues. Complete offline preview installers are available from [GitHub Releases](https://github.com/TWH393/Glimpse/releases).
 
@@ -12,13 +12,40 @@ Hy-MT2 preloads in the background when the app starts with this engine selected,
 
 ## Install
 
-Download the setup executable and **every matching `.bin` part from the same release** into one folder, then run the executable. Do not merge or open parts separately. Launch from the desktop or Start menu; uninstall through Windows Settings.
+Current release: [v0.1.0-preview.1 · Complete offline preview](https://github.com/TWH393/Glimpse/releases/tag/v0.1.0-preview.1), approximately **4.2 GB** in total.
+
+1. Open the release page and download these four files from **Assets**.
+2. Keep their original names and place them in the same folder.
+3. Run the `.exe`, then launch Glimpse from the desktop or Start menu.
+
+```text
+Glimpse-0.1.0-preview.1-win-x64-offline-setup.exe
+Glimpse-0.1.0-preview.1-win-x64-offline-setup-1.bin
+Glimpse-0.1.0-preview.1-win-x64-offline-setup-2.bin
+Glimpse-0.1.0-preview.1-win-x64-offline-setup-3.bin
+```
+
+**All three `.bin` parts are required.** Do not merge or extract them separately. GitHub's automatic `Source code (zip/tar.gz)` archives are not installers. Installation instructions and `SHA256SUMS.txt` are also provided. Uninstall through Windows Settings.
 
 Requires Windows 10 22H2 (19045) / Windows 11 x64. The per-user installer requires no administrator permission. Reserve at least 15 GB free space during installation. Includes .NET, Python, Hy-MT2, Argos, RapidOCR and CPU/NVIDIA GPU runtimes; no separate Python installation or model download is required. Select CPU mode if CUDA is unavailable. Online/API engines need separate configuration.
 
 Unsigned development preview: installation, live translation/OCR and cross-device compatibility remain pending user validation. Personal settings and API keys are excluded; existing settings are retained and bundled paths resolve to the installation. Third-party notices and licenses are included.
 
-From a prepared source environment, run `.\.venv\Scripts\python.exe tools/build_release.py --compiler "D:\Program Files\Inno Setup 7\ISCC.exe"`. Outputs are under `artifacts/release/<version>/assets/`. The script builds and packages without running the app or inference. Binary assets are excluded from Git.
+## Features and quick start
+
+| Feature | Usage |
+| --- | --- |
+| Translation workbench | Type or paste text, select languages and an engine, then translate |
+| Selection popup (experimental) | Select text in another app and click Translate; results expand inside the popup |
+| Manual selection capture | Press `Ctrl+Alt+T`; optional compatibility capture uses copying |
+| Screenshot OCR | Press `Ctrl+Alt+O` or use the capture button, then select a region; `Esc` cancels |
+| CPU / GPU selection | Configure translation and OCR devices independently in Settings |
+| Appearance | Use the sun/moon button for themes and footer controls for reading font size |
+| Background use | Tray, always-on-top and sign-in startup; closing the main window offers Exit or Minimize |
+
+For a first translation, keep the offline Hy-MT2 engine and strict offline mode, select the source and target languages, then translate. Use local RapidOCR for screenshot recognition without Windows OCR language packs. Select CPU-only mode if your GPU is unavailable or initialization fails.
+
+Selection capture depends on the target app's text interfaces or copy support; it cannot read every application. Try screenshot OCR for uncopyable text. The bundled RapidOCR model targets Chinese and English. API/online translation needs your service configuration and strict offline mode disabled.
 
 ## GPU compatibility
 
@@ -50,6 +77,8 @@ Both paths share the same GGUF file. The workbench and selection popup display t
 
 ## Build
 
+Installer users can skip this section. Source archives exclude models and runtimes, which must be prepared separately.
+
 Open `Glimpse.slnx` in Visual Studio with .NET desktop development support, or run:
 
 ```powershell
@@ -59,13 +88,22 @@ dotnet run --project WpfApp1/WpfApp1.csproj
 
 The original project folder remains `WpfApp1`; the executable is named `Glimpse`.
 
+After preparing local runtimes and models, build the full installer with Inno Setup (adjust the compiler path):
+
+```powershell
+.\.venv\Scripts\python.exe tools/build_release.py --version 0.1.0-preview.1 --compiler "D:\Program Files\Inno Setup 7\ISCC.exe"
+```
+
+Outputs are under `artifacts/release/<version>/assets/`. The script builds and packages without running the app or inference. Binary assets are excluded from Git. The complete offline installer already includes these dependencies; installation scripts below are for source development or replacing runtimes.
+
 ## Engines
 
 The × beside Paste clears the source and result and cancels any pending workbench translation. Footer controls adjust reading text from 12–30 px in the workbench and selection popup. The sun/moon button in the upper-right corner switches light and dark themes immediately; the moon enables dark mode and the sun restores light mode. Font size and theme are saved automatically and restored on startup.
 
 - API: a complete HTTPS chat-completion endpoint, model name and optional API key.
 - Online: a LibreTranslate instance base URL and optional instance key. No public endpoint or free quota is bundled.
-- Offline: an Argos Translate Python environment and an installed direct language-pair model. Install `worker/requirements.txt`, configure the interpreter path and import a `.argosmodel` file in Settings.
+- Offline Hy-MT2 (default): a GGUF model with separate CPU/CUDA runtimes; Auto, Prefer GPU and CPU-only device modes.
+- Offline Argos: an Argos Translate Python environment and an installed direct language-pair model. English → Chinese 1.9 is included in the complete bundle. For custom source setups, install `worker/requirements.txt`, configure the interpreter and import a `.argosmodel` file in Settings.
 
 Region OCR uses RapidOCR 1.4.4 with separate CPU (`.runtime/ocr-env/`) and NVIDIA GPU (`.runtime/ocr-gpu-env/`) environments. Its bundled detection, orientation and Chinese/English recognition models total approximately 16.2 MB per environment, excluding dependencies; Windows OCR language packs are not needed. Run `./tools/install_ocr.ps1` with PowerShell 7 and `uv` for CPU, or add `-Gpu` for GPU installation (also prepares CPU if missing). Dependencies are hash-locked; GPU uses ONNX Runtime GPU 1.23.2, CUDA 12.8 libraries and cuDNN 9.10.2.21 from their official PyPI packages. CPU/GPU ORT distributions are kept in separate environments; no global PATH changes or llama.cpp runtime modifications are made. Models stay in the installed package; `model-manifest.json` records their hashes. The worker disables ONNX Runtime telemetry and Python socket networking and does not download models.
 
@@ -73,9 +111,9 @@ OCR has its own Auto / Prefer GPU / CPU setting, independent of translation. GPU
 
 Settings also retain explicit Windows OCR and Tesseract options. Their language field applies only to those engines; the current RapidOCR model is fixed to Chinese/English. Windows OCR uses the bundled `worker/ocr.ps1`, Windows PowerShell 5.1 and installed system OCR language packs. Tesseract needs its executable and language data. Recognition supports cancellation and timeout, discards stale results and removes temporary screenshots. Recognized text is passed to the selected translation engine, including an online service if selected. Installation does not perform inference or UI tests.
 
-Ctrl+Alt+T translates selected text where the foreground app exposes a UI Automation text selection. Ctrl+Alt+O captures a region for OCR and translation. Use Escape to cancel region capture. Shortcut keys can be changed in Settings if occupied. Manual paste is available when text selection cannot be read.
+Ctrl+Alt+T captures selected text through UI Automation or the optional clipboard compatibility path, then shows the Translate button. Ctrl+Alt+O captures a region for OCR and translation. Use Escape to cancel region capture. Shortcut keys can be changed in Settings if occupied. Manual paste is available when text selection cannot be read.
 
-Selecting text first shows only a compact Translate button below the last selected line, with no source-text preview or translation request. Clicking expands a translation-only card and starts the request; results and copying stay there without opening or modifying the main workbench. If selection coordinates are unavailable, placement falls back to below the pointer; screen edges constrain the popup to the working area. Outside clicks and automatic selection replacement are ignored during translation and for one second after completion. After that interval, the card stays open until the next outside click; there is no timed dismissal, and clicks from the protected interval are not replayed later. Pinning keeps the expanded card open. The close button and Escape still dismiss explicitly and cancel pending requests. The selection hotkey also uses this flow. Automatic selection popup can be disabled in Settings. UI Automation is preferred, with an optional copy fallback for unsupported apps; no continuous full-window extraction is used. This interaction update has not been built or runtime-tested.
+Selecting text first shows only a compact Translate button below the last selected line, with no source-text preview or translation request. Clicking expands a translation-only card and starts the request; results and copying stay there without opening or modifying the main workbench. If selection coordinates are unavailable, placement falls back to below the pointer; screen edges constrain the popup to the working area. Outside clicks and automatic selection replacement are ignored during translation and for one second after completion. After that interval, the card stays open until the next outside click; there is no timed dismissal, and clicks from the protected interval are not replayed later. Pinning keeps the expanded card open. The close button and Escape still dismiss explicitly and cancel pending requests. The selection hotkey also uses this flow. Automatic selection popup can be disabled in Settings. UI Automation is preferred, with an optional copy fallback for unsupported apps; no continuous full-window extraction is used. This interaction is included in the compiled preview; live capture and popup behavior remain pending user validation.
 
 Closing the main window with × or Alt+F4 prompts for Exit, Minimize to taskbar, or Cancel. Minimizing keeps the app and selection feature running; exiting stops tasks and releases models. The tray menu Exit command quits directly. Windows sign-out/shutdown bypasses the prompt. This behavior has not been runtime-tested.
 
@@ -97,4 +135,4 @@ Build outputs, user files, models, virtual environments and common local secret 
 dotnet run --project tests/Glimpse.Smoke/Glimpse.Smoke.csproj
 ```
 
-HTTP checks use test doubles, not a real translation service. Real provider calls, installed OCR and offline models, cross-app capture and mixed-DPI multi-monitor behavior still require testing. Requests are limited to 16,000 characters with an explicit error; automatic segmentation, streaming, model downloads and an installer are not implemented yet.
+HTTP checks use test doubles, not a real translation service. Release compilation, complete offline packaging and uploaded asset size/SHA-256 checks were completed for `v0.1.0-preview.1`. Installation and live application behavior were not validated. Real provider calls, OCR/offline inference, cross-app capture, mixed-DPI multi-monitor behavior and sign-in startup remain pending user testing. Requests are limited to 16,000 characters with an explicit error; automatic segmentation, streaming and in-app model downloads are not implemented yet.
