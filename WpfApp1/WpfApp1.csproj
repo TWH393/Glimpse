@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Glimpse</AssemblyName>
+    <Product>Glimpse</Product>
+    <ApplicationIcon>Assets/glimpse.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets/glimpse.png" />
+    <Resource Include="Assets/glimpse.ico" />
+    <Content Include="../worker/translate.py" Link="worker/translate.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../worker/ocr.ps1" Link="worker/ocr.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../worker/ocr_local.py" Link="worker/ocr_local.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

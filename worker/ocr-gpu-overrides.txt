@@ -1,0 +1,3 @@
+# RapidOCR 1.4.4 declares the CPU distribution, but both ORT distributions
+# provide the same import. Exclude CPU ORT from this dedicated GPU environment.
+onnxruntime ; python_version < '0'

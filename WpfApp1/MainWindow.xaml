@@ -1,0 +1,343 @@
+<Window x:Class="WpfApp1.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Glimpse" Icon="Assets/glimpse.ico" Width="1120" Height="800" MinWidth="900" MinHeight="680"
+        Background="{DynamicResource WindowSurface}" Foreground="{DynamicResource Ink}"
+        FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="13"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="32,26,32,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Brand and window actions -->
+        <Grid Margin="0,0,0,26">
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <Image Source="Assets/glimpse.png" Width="46" Height="46" Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Glimpse" FontSize="25" FontWeight="SemiBold" />
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <CheckBox x:Name="PinCheck" Content="窗口置顶" VerticalAlignment="Center" Margin="0,0,18,0" Click="Pin_Click" />
+                <Button Content="收起到托盘  ↗" Style="{StaticResource QuietButton}" Click="Hide_Click" />
+                <CheckBox x:Name="DarkModeCheck" Width="38" Height="38" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <CheckBox.Style>
+                        <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                            <Setter Property="ToolTip" Value="切换深色模式" />
+                            <Setter Property="AutomationProperties.Name" Value="切换深色模式" />
+                        </Style>
+                    </CheckBox.Style>
+                    <CheckBox.Template>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Border x:Name="ThemeSurface" CornerRadius="11" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+                                <Grid Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Viewbox x:Name="MoonIcon">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="M21,12.8 A9,9 0 1 1 11.2,3 A7,7 0 0 0 21,12.8 Z" Stroke="{DynamicResource Ink}" StrokeThickness="1.7" StrokeLineJoin="Round" />
+                                        </Canvas>
+                                    </Viewbox>
+                                    <Viewbox x:Name="SunIcon" Visibility="Collapsed">
+                                        <Canvas Width="24" Height="24">
+                                            <Ellipse Canvas.Left="7" Canvas.Top="7" Width="10" Height="10" Stroke="{DynamicResource Ink}" StrokeThickness="1.7" />
+                                            <Path Data="M12,1 V4 M12,20 V23 M1,12 H4 M20,12 H23 M4.2,4.2 L6.3,6.3 M17.7,17.7 L19.8,19.8 M4.2,19.8 L6.3,17.7 M17.7,6.3 L19.8,4.2" Stroke="{DynamicResource Ink}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                        </Canvas>
+                                    </Viewbox>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="MoonIcon" Property="Visibility" Value="Collapsed" />
+                                    <Setter TargetName="SunIcon" Property="Visibility" Value="Visible" />
+                                    <Setter Property="ToolTip" Value="切换浅色模式" />
+                                    <Setter Property="AutomationProperties.Name" Value="切换浅色模式" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThemeSurface" Property="Background" Value="{DynamicResource SoftSurface}" /></Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ThemeSurface" Property="BorderBrush" Value="{DynamicResource Accent}" /></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </CheckBox.Template>
+                </CheckBox>
+            </StackPanel>
+        </Grid>
+
+        <TabControl Grid.Row="1" BorderThickness="0" Background="Transparent" Padding="0">
+            <TabItem AutomationProperties.Name="翻译工作台">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M 1,4 H 13 M 10,1 L 13,4 L 10,7 M 15,12 H 3 M 6,9 L 3,12 L 6,15"
+                              Width="16" Height="16" Stretch="Uniform" StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,9,0" />
+                        <TextBlock Text="翻译工作台" VerticalAlignment="Center" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="0,20,0,0">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+
+                    <!-- Compact engine and language toolbar -->
+                    <Border Style="{StaticResource Card}" CornerRadius="13" Padding="14" Margin="0,0,0,18">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="210" /><ColumnDefinition Width="24" /><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <ComboBox x:Name="EngineBox" SelectedIndex="0" ToolTip="选择翻译引擎">
+                                <ComboBoxItem Content="API · 自定义模型" />
+                                <ComboBoxItem Content="在线 · LibreTranslate" />
+                                <ComboBoxItem Content="离线 · Argos Translate" />
+                                <ComboBoxItem Content="离线 · Hy-MT2" />
+                            </ComboBox>
+                            <Border Grid.Column="1" Width="1" Background="{DynamicResource Line}" Margin="0,7" />
+                            <Grid Grid.Column="2" Margin="0,0,18,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="36" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <ComboBox x:Name="SourceBox" SelectedIndex="0" ToolTip="原文语言">
+                                    <ComboBoxItem Content="英语" Tag="en" /><ComboBoxItem Content="中文" Tag="zh" /><ComboBoxItem Content="日语" Tag="ja" /><ComboBoxItem Content="自动识别（联网）" Tag="auto" />
+                                </ComboBox>
+                                <TextBlock Grid.Column="1" Text="→" Foreground="{DynamicResource Muted}" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                <ComboBox x:Name="TargetBox" Grid.Column="2" SelectedIndex="0" ToolTip="译文语言">
+                                    <ComboBoxItem Content="简体中文" Tag="zh" /><ComboBoxItem Content="英语" Tag="en" /><ComboBoxItem Content="日语" Tag="ja" />
+                                </ComboBox>
+                            </Grid>
+                            <CheckBox x:Name="OfflineCheck" Grid.Column="3" Content="严格离线" VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="只允许使用本地翻译引擎" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Reading surfaces -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="18" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,22">
+                                    <StackPanel><TextBlock Text="原文" FontSize="15" FontWeight="SemiBold" /><TextBlock Text="SOURCE" FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" /></StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                        <Button Content="粘贴" Style="{StaticResource QuietButton}" Padding="10,6" Click="Paste_Click" />
+                                        <Button Content="×" Style="{StaticResource QuietButton}" Padding="9,2" FontSize="22" Click="ClearText_Click" ToolTip="清空原文和译文" AutomationProperties.Name="清空文本" />
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Grid.Row="1">
+                                    <TextBlock Text="在这里输入，或粘贴一段文字…" Foreground="{DynamicResource Muted}" FontSize="{DynamicResource ReadingFontSize}" TextWrapping="Wrap" IsHitTestVisible="False" Margin="0,1,0,0">
+                                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=SourceText}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBox x:Name="SourceText" Style="{StaticResource Editor}" />
+                                </Grid>
+                                <TextBlock Grid.Row="2" Text="其他窗口划词后会出现小悬浮窗，确认翻译后在悬浮窗内查看。" Style="{StaticResource Hint}" Margin="0,20,0,0" />
+                            </Grid>
+                        </Border>
+                        <Border Grid.Column="2" Style="{StaticResource Card}" Background="{DynamicResource TranslationSurface}" BorderBrush="{DynamicResource TranslationLine}">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,22">
+                                    <StackPanel><TextBlock Text="译文" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TranslationInk}" /><TextBlock Text="TRANSLATION" FontSize="10" Foreground="{DynamicResource SubtleInk}" Margin="0,5,0,0" /></StackPanel>
+                                    <Button Content="复制" Style="{StaticResource QuietButton}" Padding="10,6" HorizontalAlignment="Right" VerticalAlignment="Top" Click="Copy_Click" />
+                                </Grid>
+                                <Grid Grid.Row="1">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False" Margin="8">
+                                        <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=ResultText}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+                                        <Border Background="{DynamicResource TranslationSurface}" Width="52" Height="52" CornerRadius="17" HorizontalAlignment="Center" Margin="0,0,0,15">
+                                            <TextBlock Text="Aa" FontSize="21" Foreground="{DynamicResource SubtleInk}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <TextBlock Text="理解，从这里开始" Foreground="{DynamicResource SubtleInk}" FontSize="15" HorizontalAlignment="Center" />
+                                        <TextBlock Text="译文会显示在这里" Foreground="{DynamicResource SubtleInk}" FontSize="12" Margin="0,7,0,0" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBox x:Name="ResultText" Style="{StaticResource Editor}" Foreground="{DynamicResource TranslationInk}" IsReadOnly="True" />
+                                </Grid>
+                                <TextBlock Grid.Row="2" Text="保留段落，专注阅读。" Foreground="{DynamicResource SubtleInk}" FontSize="12" Margin="0,20,0,0" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="2" Margin="0,20,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="框选识字  ↗" Click="Capture_Click" />
+                            <TextBlock Text="图片里的文字，也能读懂。" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="14,0,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button Content="取消" Style="{StaticResource QuietButton}" Margin="0,0,8,0" Click="Cancel_Click" />
+                            <Button x:Name="TranslateButton" Content="开始翻译   →" Style="{StaticResource PrimaryButton}" Click="Translate_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem AutomationProperties.Name="偏好设置">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons" FontSize="16" VerticalAlignment="Center" Margin="0,0,9,0" />
+                        <TextBlock Text="偏好设置" VerticalAlignment="Center" />
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid Margin="0,20,0,0">
+                    <Grid.RowDefinitions><RowDefinition /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+                        <StackPanel>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="本地翻译运行模式" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="切换后自动保存并重新加载 Hy-MT2。仅影响本地 Hy-MT2 引擎。" Style="{StaticResource Hint}" Margin="0,6,0,16" />
+                                    <ListBox x:Name="DeviceModeBox" SelectedIndex="0" HorizontalAlignment="Left" Background="{DynamicResource SoftSurface}" BorderThickness="0" Padding="5" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                        <ListBox.Resources>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                            <Border x:Name="ModeSurface" Background="Transparent" CornerRadius="10" Padding="22,12" MinWidth="120">
+                                                                <ContentPresenter HorizontalAlignment="Center" />
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter TargetName="ModeSurface" Property="Background" Value="White" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </Trigger>
+                                                                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Accent}" /></Trigger>
+                                                                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ModeSurface" Property="BorderBrush" Value="#5B55ED" /><Setter TargetName="ModeSurface" Property="BorderThickness" Value="1" /></Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.Resources>
+                                        <ListBoxItem Content="自动" />
+                                        <ListBoxItem Content="GPU" ToolTip="优先使用 NVIDIA 显卡，初始化失败后回退 CPU" />
+                                        <ListBoxItem Content="CPU" ToolTip="仅使用 CPU，不加载 CUDA" />
+                                    </ListBox>
+                                    <TextBlock Text="自动：显存紧张时选 CPU；GPU：优先显卡，失败回退 CPU；CPU：仅使用内存进行推理。实际运行设备显示在底部状态栏。" Style="{StaticResource Hint}" Margin="0,12,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Grid Margin="0,0,0,18">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="18" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Text="API 翻译" FontSize="17" FontWeight="SemiBold" />
+                                        <TextBlock Text="连接你习惯使用的模型服务。" Style="{StaticResource Hint}" Margin="0,6,0,22" />
+                                        <TextBlock Text="接口地址" Style="{StaticResource FieldLabel}" />
+                                        <TextBox x:Name="ApiUrlBox" ToolTip="兼容聊天补全协议的完整地址，例如 https://your-provider.example/v1/chat/completions" Margin="0,0,0,16" />
+                                        <TextBlock Text="模型名称" Style="{StaticResource FieldLabel}" />
+                                        <TextBox x:Name="ModelBox" Margin="0,0,0,16" />
+                                        <TextBlock Text="API 密钥" Style="{StaticResource FieldLabel}" />
+                                        <PasswordBox x:Name="KeyBox" />
+                                        <TextBlock Text="密钥加密保存在当前 Windows 用户下。" Style="{StaticResource Hint}" Margin="0,12,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <TextBlock Text="在线翻译" FontSize="17" FontWeight="SemiBold" />
+                                        <TextBlock Text="使用你选择的 LibreTranslate 实例。" Style="{StaticResource Hint}" Margin="0,6,0,22" />
+                                        <TextBlock Text="服务地址" Style="{StaticResource FieldLabel}" />
+                                        <TextBox x:Name="OnlineUrlBox" ToolTip="填写实例根地址，程序会追加 /translate" Margin="0,0,0,16" />
+                                        <TextBlock Text="实例密钥 · 可选" Style="{StaticResource FieldLabel}" />
+                                        <PasswordBox x:Name="OnlineKeyBox" />
+                                        <Border Background="{DynamicResource InputSurface}" CornerRadius="10" Padding="14" Margin="0,20,0,0">
+                                            <TextBlock Text="可用语言、费用和访问限制由服务实例决定。" Style="{StaticResource Hint}" />
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="Hy-MT2 · 本地翻译" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="启动时已选中或切换到此引擎时自动加载，后续复用。支持显卡加速，旧 Argos 引擎仍可单独选择。" Style="{StaticResource Hint}" Margin="0,6,0,22" />
+                                    <TextBlock Text="GGUF 模型路径" Style="{StaticResource FieldLabel}" />
+                                    <TextBox x:Name="LocalModelBox" Margin="0,0,0,16" />
+                                    <TextBlock Text="GPU 运行时路径（NVIDIA CUDA）" Style="{StaticResource FieldLabel}" />
+                                    <TextBox x:Name="LlamaServerBox" Margin="0,0,0,18" />
+                                    <TextBlock Text="CPU 运行时路径" Style="{StaticResource FieldLabel}" />
+                                    <TextBox x:Name="CpuLlamaServerBox" Margin="0,0,0,18" />
+                                    <WrapPanel>
+                                        <TextBlock Text="显存紧张时闲置（分钟）" VerticalAlignment="Center" Margin="0,0,10,10" />
+                                        <TextBox x:Name="IdleMinutesBox" Text="5" Width="65" Margin="0,0,14,10" ToolTip="0 关闭显存自动管理；支持 1–60 分钟" />
+                                        <Button Content="立即卸载模型" Click="UnloadLocal_Click" Margin="0,0,0,10" />
+                                    </WrapPanel>
+                                    <TextBlock Text="自动：加载时显存紧张则用 CPU，否则优先 GPU。优先 GPU：始终先尝试显卡。两者在 GPU 初始化失败后均回退 CPU；仅 CPU 不依赖 NVIDIA 显卡或 CUDA。当前设备保持到卸载，下次加载重新选择。" Style="{StaticResource Hint}" Margin="0,2,0,10" />
+                                    <TextBlock Text="平时保持加载。显存已用 ≥85% 或剩余 ≤2 GB，且达到闲置时间才卸载；显存已用 &lt;70% 且剩余 &gt;3 GB 持续一分钟后自动恢复。手动卸载不自动恢复，模型文件始终保留。" Style="{StaticResource Hint}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="Argos 与本地 OCR" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="准备好运行环境和模型，断网也能继续。" Style="{StaticResource Hint}" Margin="0,6,0,22" />
+                                    <TextBlock Text="OCR 引擎" Style="{StaticResource FieldLabel}" />
+                                    <ComboBox x:Name="OcrEngineBox" SelectedIndex="0" Margin="0,0,0,14">
+                                        <ComboBoxItem Content="本地 · RapidOCR（中英文）" />
+                                        <ComboBoxItem Content="Windows OCR（系统语言包）" />
+                                        <ComboBoxItem Content="Tesseract（自备语言包）" />
+                                    </ComboBox>
+                                    <TextBlock Text="本地 OCR Python 路径" Style="{StaticResource FieldLabel}" />
+                                    <TextBox x:Name="OcrPythonBox" Margin="0,0,0,10" />
+                                    <TextBlock Text="OCR GPU Python 路径" Style="{StaticResource FieldLabel}" />
+                                    <TextBox x:Name="OcrGpuPythonBox" Margin="0,0,0,14" />
+                                    <TextBlock Text="OCR 运行设备" Style="{StaticResource FieldLabel}" />
+                                    <ComboBox x:Name="OcrDeviceModeBox" SelectedIndex="0" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="自动（GPU 可用时优先）" />
+                                        <ComboBoxItem Content="优先 GPU（NVIDIA CUDA）" />
+                                        <ComboBoxItem Content="仅 CPU" />
+                                    </ComboBox>
+                                    <TextBlock Text="打开框选时启动并加载 OCR，识别完成或取消后关闭进程。GPU 不可用时回退 CPU，并显示实际设备。OCR 设备独立于翻译设备；自带中英文模型，不依赖 Windows 语言包。下方语言仅用于 Windows OCR 和 Tesseract。修改后保存。" Style="{StaticResource Hint}" Margin="0,0,0,20" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="20" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Python 路径" Style="{StaticResource FieldLabel}" />
+                                            <TextBox x:Name="PythonBox" ToolTip="安装 Argos Translate 的 Python 可执行文件路径" Margin="0,0,0,16" />
+                                            <TextBlock Text="OCR 语言包" Style="{StaticResource FieldLabel}" />
+                                            <TextBox x:Name="OcrLanguagesBox" ToolTip="例如 eng、eng+chi_sim、jpn，语言包需要预先安装" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Tesseract 路径 · 可选" Style="{StaticResource FieldLabel}" />
+                                            <TextBox x:Name="OcrBox" ToolTip="仅在选择 Tesseract 引擎时使用，填写其完整可执行文件路径。" Margin="0,0,0,16" />
+                                            <TextBlock Text="翻译模型" Style="{StaticResource FieldLabel}" />
+                                            <WrapPanel><Button Content="导入模型…" Click="ImportModel_Click" Margin="0,0,8,8" /><Button Content="检查依赖" Click="CheckLocal_Click" Margin="0,0,0,8" /></WrapPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,4">
+                                <StackPanel>
+                                    <TextBlock Text="顺手的快捷键" FontSize="17" FontWeight="SemiBold" />
+                                    <CheckBox x:Name="AutoPopupCheck" Content="选中文字后自动显示翻译悬浮窗" IsChecked="True" Margin="0,16,0,4" Click="AutoPopup_Click" />
+                                    <TextBlock Text="只显示原文与翻译按钮，点击后才请求翻译；译文只出现在悬浮窗。" Style="{StaticResource Hint}" Margin="0,4,0,8" />
+                                    <TextBlock Text="固定使用 Ctrl + Alt，再加一个你喜欢的键。支持 A–Z 或 F1–F12。" Style="{StaticResource Hint}" Margin="0,6,0,20" />
+                                    <WrapPanel>
+                                        <TextBlock Text="选中文字" VerticalAlignment="Center" Foreground="{DynamicResource Ink}" Margin="0,0,16,0" />
+                                        <Border Background="{DynamicResource InputSurface}" CornerRadius="8" Padding="12,10" Margin="0,0,8,0"><TextBlock Text="Ctrl + Alt +" Foreground="{DynamicResource Muted}" /></Border>
+                                        <TextBox x:Name="SelectionKeyBox" Text="T" Width="65" Margin="0,0,30,0" />
+                                        <TextBlock Text="框选识字" VerticalAlignment="Center" Foreground="{DynamicResource Ink}" Margin="0,0,16,0" />
+                                        <Border Background="{DynamicResource InputSurface}" CornerRadius="8" Padding="12,10" Margin="0,0,8,0"><TextBlock Text="Ctrl + Alt +" Foreground="{DynamicResource Muted}" /></Border>
+                                        <TextBox x:Name="CaptureKeyBox" Text="O" Width="65" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Grid Grid.Row="1" Margin="0,18,0,0">
+                        <TextBlock Text="设置保存后生效。离线模式不会自动切换到联网服务。" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,170,0" />
+                        <Button Content="保存偏好设置" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Click="Save_Click" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.Row="2" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Margin="0,22,0,0" Padding="0,14,0,0">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
+                    <TextBlock Text="字号" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <Button Content="A−" Click="SmallerText_Click" Style="{StaticResource QuietButton}" Padding="8,4" ToolTip="缩小阅读字号" />
+                    <Slider x:Name="TextSizeSlider" Minimum="12" Maximum="30" Value="19" TickFrequency="1" IsSnapToTickEnabled="True" Width="130" VerticalAlignment="Center" Margin="6,0" AutomationProperties.Name="阅读字号" />
+                    <Button Content="A+" Click="LargerText_Click" Style="{StaticResource QuietButton}" Padding="8,4" ToolTip="放大阅读字号" />
+                    <TextBlock Text="{Binding Value, ElementName=TextSizeSlider, StringFormat={}{0:0} px}" Width="48" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" Margin="8,0,18,0" />
+                </StackPanel>
+                <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                    <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock x:Name="StatusText" Grid.Column="1" Text="准备就绪" Foreground="{DynamicResource Muted}" FontSize="11" TextWrapping="Wrap" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,5 @@
+# CPU OCR with Chinese/English PP-OCR model files included in the wheel.
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.20.1
+numpy==1.26.4
+opencv-python==4.10.0.84

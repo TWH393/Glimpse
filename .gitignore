@@ -1,0 +1,17 @@
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+TestResults/
+artifacts/
+.env
+.env.*
+*.local.json
+secrets/
+models/
+.venv/
+.runtime/
+__pycache__/
+*.pyc
+*.log
