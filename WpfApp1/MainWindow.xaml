@@ -26,6 +26,39 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <CheckBox x:Name="PinCheck" Content="窗口置顶" VerticalAlignment="Center" Margin="0,0,18,0" Click="Pin_Click" />
                 <Button Content="收起到托盘  ↗" Style="{StaticResource QuietButton}" Click="Hide_Click" />
+                <CheckBox x:Name="PowerModeCheck" Width="38" Height="38" Margin="8,0,0,0" VerticalAlignment="Center" Click="PowerMode_Click">
+                    <CheckBox.Style>
+                        <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                            <Setter Property="ToolTip" Value="性能模式：预加载并复用模型。点击切换节能模式" />
+                            <Setter Property="AutomationProperties.Name" Value="性能模式，切换至节能模式" />
+                        </Style>
+                    </CheckBox.Style>
+                    <CheckBox.Template>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Border x:Name="PowerSurface" CornerRadius="11" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+                                <Grid Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Path x:Name="LightningIcon" Data="M13,2 L4,14 H11 L10,22 L21,9 H13 Z" Stretch="Uniform" Margin="2,0" Stroke="{DynamicResource Accent}" StrokeThickness="1.7" StrokeLineJoin="Round" />
+                                    <Viewbox x:Name="LeafIcon" Visibility="Collapsed">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="M20,3 C10,2 3,6 4,13 C5,20 18,21 20,3 Z M3,22 C6,15 10,11 15,8" Stroke="#39A46B" StrokeThickness="1.7" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                        </Canvas>
+                                    </Viewbox>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="LightningIcon" Property="Visibility" Value="Collapsed" />
+                                    <Setter TargetName="LeafIcon" Property="Visibility" Value="Visible" />
+                                    <Setter Property="ToolTip" Value="节能模式：按需加载，空闲一分钟后卸载。点击切换性能模式" />
+                                    <Setter Property="AutomationProperties.Name" Value="节能模式，切换至性能模式" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PowerSurface" Property="Background" Value="{DynamicResource SoftSurface}" /></Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="PowerSurface" Property="BorderBrush" Value="{DynamicResource Accent}" /></Trigger>
+                                <Trigger Property="IsEnabled" Value="False"><Setter TargetName="PowerSurface" Property="Opacity" Value="0.45" /></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </CheckBox.Template>
+                </CheckBox>
                 <CheckBox x:Name="DarkModeCheck" Width="38" Height="38" Margin="8,0,0,0" VerticalAlignment="Center">
                     <CheckBox.Style>
                         <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
@@ -263,7 +296,7 @@
                                         <Button Content="立即卸载模型" Click="UnloadLocal_Click" Margin="0,0,0,10" />
                                     </WrapPanel>
                                     <TextBlock Text="自动：加载时显存紧张则用 CPU，否则优先 GPU。优先 GPU：始终先尝试显卡。两者在 GPU 初始化失败后均回退 CPU；仅 CPU 不依赖 NVIDIA 显卡或 CUDA。当前设备保持到卸载，下次加载重新选择。" Style="{StaticResource Hint}" Margin="0,2,0,10" />
-                                    <TextBlock Text="平时保持加载。显存已用 ≥85% 或剩余 ≤2 GB，且达到闲置时间才卸载；显存已用 &lt;70% 且剩余 &gt;3 GB 持续一分钟后自动恢复。手动卸载不自动恢复，模型文件始终保留。" Style="{StaticResource Hint}" Margin="0,2,0,0" />
+                                    <TextBlock Text="右上角闪电/树叶或托盘菜单切换模式。性能模式预加载并复用；显存紧张且达到上方闲置时间时卸载，显存宽裕一分钟后恢复。节能模式不预加载，空闲一分钟后卸载 CPU/GPU 模型，不自动恢复。手动卸载保留模型文件。" Style="{StaticResource Hint}" Margin="0,2,0,0" />
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource Card}" Margin="0,0,0,18">

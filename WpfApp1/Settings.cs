@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 namespace WpfApp1;
 
 public enum LocalDeviceMode { Auto, PreferGpu, Cpu }
+public enum ModelPowerMode { Performance, PowerSaving }
 
 public sealed class Settings
 {
@@ -32,6 +33,7 @@ public sealed class Settings
     [JsonIgnore] public LocalDeviceMode EffectiveDeviceMode => DeviceMode is { } mode && Enum.IsDefined(mode)
         ? mode : UseGpu ? LocalDeviceMode.Auto : LocalDeviceMode.Cpu;
     public int IdleMinutes { get; set; } = 5;
+    public ModelPowerMode PowerMode { get; set; } = ModelPowerMode.Performance;
     public bool AutoSelectionPopup { get; set; } = true;
     public bool ClipboardSelectionFallback { get; set; } = true;
     public bool DarkMode { get; set; }

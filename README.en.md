@@ -63,6 +63,8 @@ Model weights can be shared, but CUDA capability alone does not establish compat
 
 ## CPU / GPU selection
 
+Local development changes (not included in the published installer yet): the lightning/leaf button beside the theme control and the tray context menu switch between Performance and Power saving. Both controls stay synchronized and save the choice automatically. Performance is the default and preloads/reuses Hy-MT2, retaining the VRAM pressure policy described above. Power saving skips preloading, loads on demand, and unloads CPU/GPU models after one idle minute without automatic recovery (the 15-second polling interval can delay cleanup). Switching to Power saving releases an idle model immediately or waits for active inference to finish; switching back preloads in the background. Device selection is independent. Argos, OCR and online/API engine lifecycles are unchanged. These local changes have not been compiled or runtime-tested.
+
 Select a mode under Hy-MT2 in Settings and save:
 
 | Mode | Behavior on loading |

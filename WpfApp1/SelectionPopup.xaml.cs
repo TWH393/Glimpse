@@ -150,6 +150,7 @@ public partial class SelectionPopup : Window
             PopupStatus.Text = $"{engineName} · {watch.Elapsed.TotalSeconds:F1} 秒";
             if (configuration.Engine == 3 && LocalLlm.LastTiming is { } timing)
                 PopupStatus.Text = $"Hy-MT2 · {timing.Backend} · 加载 {timing.LoadSeconds:F1} 秒 · 翻译 {timing.TranslationSeconds:F1} 秒"
+                    + $" · {LocalLlm.ResidencyDescription}"
                     + (timing.RouteNote.Length > 0 ? $" · {timing.RouteNote}" : "");
         }
         catch (OperationCanceledException) { if (current == revision) PopupStatus.Text = "已取消或请求超时。"; }

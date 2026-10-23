@@ -31,6 +31,9 @@ public static class LocalLlm
     private static string apiKey = "";
     private static DateTime lastUsed = DateTime.UtcNow;
     private static int idleMinutes = 5;
+    private static volatile ModelPowerMode powerMode = ModelPowerMode.Performance;
+    public static string ResidencyDescription => powerMode == ModelPowerMode.PowerSaving
+        ? "节能模式 · 空闲一分钟后卸载" : "性能模式 · 保持加载，可手动卸载";
     private static bool gpuEnabled;
     private static int offloadedLayers;
     private static string routeNote = "";
@@ -101,7 +104,7 @@ public static class LocalLlm
     {
         Engine = 3, Offline = true, LlamaServer = s.LlamaServer,
         CpuLlamaServer = s.CpuLlamaServer, LocalModel = s.LocalModel,
-        DeviceMode = s.EffectiveDeviceMode, IdleMinutes = s.IdleMinutes
+        DeviceMode = s.EffectiveDeviceMode, IdleMinutes = s.IdleMinutes, PowerMode = powerMode
     };
 
     private static async Task Start(Settings settings, CancellationToken token, IProgress<string>? progress = null)
@@ -267,7 +270,7 @@ public static class LocalLlm
         try
         {
             token.ThrowIfCancellationRequested();
-            if (closing) return;
+            if (closing || powerMode == ModelPowerMode.PowerSaving) return;
             idleMinutes = Math.Clamp(settings.IdleMinutes, 0, 60);
             activeSettings = ResidencySettings(settings);
             if (server != null && !server.HasExited && configuration == Fingerprint(settings)) return;
@@ -306,8 +309,12 @@ public static class LocalLlm
         await Gate.WaitAsync();
         try
         {
+            bool enteringPowerSaving = powerMode != ModelPowerMode.PowerSaving
+                && settings.PowerMode == ModelPowerMode.PowerSaving;
+            powerMode = settings.PowerMode == ModelPowerMode.PowerSaving
+                ? ModelPowerMode.PowerSaving : ModelPowerMode.Performance;
             idleMinutes = Math.Clamp(settings.IdleMinutes, 0, 60);
-            if (settings.Engine != 3
+            if (enteringPowerSaving || settings.Engine != 3
                 || server != null && configuration != Fingerprint(settings)
                 || resumeSettings != null && Fingerprint(resumeSettings) != Fingerprint(settings))
                 StopLocked();
@@ -315,7 +322,8 @@ public static class LocalLlm
             {
                 activeSettings = ResidencySettings(settings);
                 if (resumeSettings != null) resumeSettings = ResidencySettings(settings);
-                if (idleMinutes == 0) { resumeSettings = null; lowPressureSince = null; }
+                if (idleMinutes == 0 || powerMode == ModelPowerMode.PowerSaving)
+                { resumeSettings = null; lowPressureSince = null; }
             }
         }
         finally { Gate.Release(); }
@@ -331,7 +339,20 @@ public static class LocalLlm
             Settings? observedResume;
             try
             {
-                if (closing || idleMinutes == 0 || !gpuEnabled) return;
+                if (closing) return;
+                if (powerMode == ModelPowerMode.PowerSaving)
+                {
+                    // The gate is free only after all current inference has finished.
+                    // This applies to CPU RAM as well as GPU VRAM, independently of
+                    // the performance-mode VRAM pressure interval.
+                    if (server != null && DateTime.UtcNow - lastUsed >= TimeSpan.FromMinutes(1))
+                    {
+                        StopLocked();
+                        Publish("节能模式 · 空闲一分钟，Hy-MT2 已卸载；下次翻译时重新加载。");
+                    }
+                    return;
+                }
+                if (idleMinutes == 0 || !gpuEnabled) return;
                 observedServer = server; observedResume = resumeSettings;
                 if (observedServer == null && observedResume == null) return;
                 if (observedServer != null && DateTime.UtcNow - lastUsed < TimeSpan.FromMinutes(idleMinutes)) return;
@@ -343,7 +364,8 @@ public static class LocalLlm
             if (!Gate.Wait(0)) return;
             try
             {
-                if (closing || !ReferenceEquals(observedServer, server) || !ReferenceEquals(observedResume, resumeSettings)) return;
+                if (closing || powerMode == ModelPowerMode.PowerSaving
+                    || !ReferenceEquals(observedServer, server) || !ReferenceEquals(observedResume, resumeSettings)) return;
                 if (memory == null) { lowPressureSince = null; return; }
                 if (server != null)
                 {

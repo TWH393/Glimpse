@@ -22,6 +22,9 @@ public partial class MainWindow : Window
     private bool capturing;
     private System.Windows.Forms.NotifyIcon? tray;
     private System.Drawing.Icon? trayIcon;
+    private System.Windows.Forms.ToolStripMenuItem? performanceMenuItem, powerSavingMenuItem;
+    private ModelPowerMode powerMode;
+    private bool changingPowerMode;
     private HwndSource? source;
     private SelectionMonitor? selectionMonitor;
     private SelectionPopup? selectionPopup;
@@ -32,6 +35,7 @@ public partial class MainWindow : Window
         try
         {
             var s = Settings.Load();
+            powerMode = s.PowerMode == ModelPowerMode.PowerSaving ? ModelPowerMode.PowerSaving : ModelPowerMode.Performance;
             DarkModeCheck.IsChecked = s.DarkMode;
             TextSizeSlider.Value = double.IsFinite(s.ReadingFontSize) ? Math.Clamp(s.ReadingFontSize, 12, 30) : 19;
             Appearance.Apply(s.DarkMode, TextSizeSlider.Value);
@@ -50,6 +54,7 @@ public partial class MainWindow : Window
         }
         catch (Exception) { StatusText.Text = "设置读取失败，请重新配置并保存。"; }
         RefreshStartupState();
+        RefreshPowerMode();
         SourceInitialized += (_, _) => InitializeNative();
         EngineBox.SelectionChanged += Engine_Changed;
         DeviceModeBox.SelectionChanged += DeviceMode_Changed;
@@ -65,7 +70,7 @@ public partial class MainWindow : Window
             }
             await PreloadSelectedModel();
         };
-        Closed += (_, _) => { shuttingDown = true; captureRequest?.Cancel(); preload?.Cancel(); LocalLlm.ResidencyChanged -= ModelResidencyChanged; selectionMonitor?.Dispose(); selectionPopup?.Close(); pending?.Cancel(); LocalLlm.Shutdown(); tray?.Dispose(); trayIcon?.Dispose(); source?.RemoveHook(WindowHook); Native.Unregister(new WindowInteropHelper(this).Handle); };
+        Closed += (_, _) => { shuttingDown = true; captureRequest?.Cancel(); preload?.Cancel(); LocalLlm.ResidencyChanged -= ModelResidencyChanged; selectionMonitor?.Dispose(); selectionPopup?.Close(); pending?.Cancel(); LocalLlm.Shutdown(); performanceMenuItem?.Image?.Dispose(); powerSavingMenuItem?.Image?.Dispose(); tray?.ContextMenuStrip?.Dispose(); tray?.Dispose(); trayIcon?.Dispose(); source?.RemoveHook(WindowHook); Native.Unregister(new WindowInteropHelper(this).Handle); };
     }
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
@@ -144,7 +149,16 @@ public partial class MainWindow : Window
         StatusText.Text = Native.Register(handle, SelectionKeyBox.Text, CaptureKeyBox.Text);
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("打开 Glimpse", null, (_, _) => Dispatcher.Invoke(Reveal));
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        performanceMenuItem = new System.Windows.Forms.ToolStripMenuItem("性能模式", PowerModeIcons.Create(false));
+        powerSavingMenuItem = new System.Windows.Forms.ToolStripMenuItem("节能模式", PowerModeIcons.Create(true));
+        performanceMenuItem.Click += (sender, args) => { _ = Dispatcher.InvokeAsync(() => SetPowerMode(ModelPowerMode.Performance)); };
+        powerSavingMenuItem.Click += (sender, args) => { _ = Dispatcher.InvokeAsync(() => SetPowerMode(ModelPowerMode.PowerSaving)); };
+        menu.Items.Add(performanceMenuItem);
+        menu.Items.Add(powerSavingMenuItem);
+        menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add("退出", null, (_, _) => Dispatcher.Invoke(RequestExit));
+        RefreshPowerMode();
         using (var iconStream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/glimpse.ico")).Stream)
         using (var resourceIcon = new System.Drawing.Icon(iconStream, System.Windows.Forms.SystemInformation.SmallIconSize))
             trayIcon = (System.Drawing.Icon)resourceIcon.Clone();
@@ -202,6 +216,53 @@ public partial class MainWindow : Window
         catch (Exception ex) { StatusText.Text = "外观已应用，保存失败：" + ex.Message; }
     }
     private async void Translate_Click(object sender, RoutedEventArgs e) => await Translate();
+    private async void PowerMode_Click(object sender, RoutedEventArgs e) => await SetPowerMode(
+        PowerModeCheck.IsChecked == true ? ModelPowerMode.PowerSaving : ModelPowerMode.Performance);
+    private void RefreshPowerMode()
+    {
+        PowerModeCheck.IsChecked = powerMode == ModelPowerMode.PowerSaving;
+        PowerModeCheck.IsEnabled = !changingPowerMode;
+        if (performanceMenuItem != null)
+        {
+            performanceMenuItem.Checked = powerMode == ModelPowerMode.Performance;
+            performanceMenuItem.Enabled = !changingPowerMode;
+        }
+        if (powerSavingMenuItem != null)
+        {
+            powerSavingMenuItem.Checked = powerMode == ModelPowerMode.PowerSaving;
+            powerSavingMenuItem.Enabled = !changingPowerMode;
+        }
+    }
+    private async Task SetPowerMode(ModelPowerMode mode)
+    {
+        if (changingPowerMode || shuttingDown) { RefreshPowerMode(); return; }
+        if (mode == powerMode) { RefreshPowerMode(); return; }
+        changingPowerMode = true;
+        RefreshPowerMode();
+        try
+        {
+            // Persist only the mode, without saving unfinished preference edits.
+            var saved = Settings.Load();
+            saved.PowerMode = mode;
+            saved.Save();
+            powerMode = mode;
+            RefreshPowerMode();
+            preload?.Cancel();
+            StatusText.Text = mode == ModelPowerMode.PowerSaving
+                ? "正在切换节能模式；若正在翻译，将完成后释放模型…"
+                : "正在切换性能模式…";
+            await LocalLlm.UpdatePolicy(ReadSettings());
+            if (shuttingDown) return;
+            if (mode == ModelPowerMode.Performance && EngineBox.SelectedIndex == 3)
+                await PreloadSelectedModel();
+            else
+                StatusText.Text = mode == ModelPowerMode.PowerSaving
+                    ? "节能模式 · 按需加载，空闲一分钟后卸载；下次翻译时重新加载。"
+                    : "性能模式 · 选择 Hy-MT2 后自动预加载。";
+        }
+        catch (Exception ex) { if (!shuttingDown) StatusText.Text = "切换模型电源模式失败：" + ex.Message; }
+        finally { changingPowerMode = false; RefreshPowerMode(); }
+    }
     private async void Capture_Click(object sender, RoutedEventArgs e) => await CaptureRegion();
     private Settings ReadSettings() => new()
     {
@@ -227,6 +288,7 @@ public partial class MainWindow : Window
         DeviceMode = (LocalDeviceMode)Math.Clamp(DeviceModeBox.SelectedIndex, 0, 2),
         UseGpu = DeviceModeBox.SelectedIndex != 2,
         IdleMinutes = int.TryParse(IdleMinutesBox.Text, out var idle) ? Math.Clamp(idle, 0, 60) : 5,
+        PowerMode = powerMode,
         AutoSelectionPopup = AutoPopupCheck.IsChecked == true,
         ClipboardSelectionFallback = ClipboardFallbackCheck.IsChecked == true,
         DarkMode = DarkModeCheck.IsChecked == true,
@@ -278,7 +340,18 @@ public partial class MainWindow : Window
         if (EngineBox.SelectedIndex != 3 || Dispatcher.HasShutdownStarted) return;
         using var loading = new CancellationTokenSource();
         preload = loading;
-        try { await LocalLlm.Preload(ReadSettings(), loading.Token); }
+        try
+        {
+            var settings = ReadSettings();
+            await LocalLlm.UpdatePolicy(settings);
+            loading.Token.ThrowIfCancellationRequested();
+            if (settings.PowerMode == ModelPowerMode.PowerSaving)
+            {
+                StatusText.Text = "节能模式 · 不预加载，翻译时加载；空闲一分钟后释放模型。";
+                return;
+            }
+            await LocalLlm.Preload(settings, loading.Token);
+        }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
@@ -307,7 +380,7 @@ public partial class MainWindow : Window
             ResultText.Text = result; StatusText.Text = $"完成 · {watch.Elapsed.TotalSeconds:F1} 秒 · {((ComboBoxItem)EngineBox.Items[s.Engine]).Content}";
             if (s.Engine == 3 && LocalLlm.LastTiming is { } timing)
                 StatusText.Text = $"完成 · {timing.Backend} · 加载 {timing.LoadSeconds:F1} 秒 · 翻译 {timing.TranslationSeconds:F1} 秒 · Hy-MT2 · "
-                    + (timing.Backend == "CPU" || s.IdleMinutes == 0 ? "保持加载，可手动卸载" : $"保持加载；仅显存紧张且闲置 {s.IdleMinutes} 分钟时卸载")
+                    + LocalLlm.ResidencyDescription
                     + (timing.RouteNote.Length > 0 ? $" · {timing.RouteNote}" : "");
         }
         catch (OperationCanceledException) { if (current == generation) StatusText.Text = "已取消或请求超时。"; }
