@@ -32,6 +32,10 @@ public partial class MainWindow : Window
     {
         Appearance.Apply(false, 19);
         InitializeComponent();
+        LivePanel.TranslationSettings = ReadSettings;
+        MediaPanel.TranslationSettings = ReadSettings;
+        Closed += (_, _) => LivePanel.Dispose();
+        Closed += (_, _) => MediaPanel.Dispose();
         try
         {
             var s = Settings.Load();
@@ -41,7 +45,7 @@ public partial class MainWindow : Window
             Appearance.Apply(s.DarkMode, TextSizeSlider.Value);
             ApiUrlBox.Text = s.ApiUrl; ModelBox.Text = s.Model; KeyBox.Password = s.ApiKey;
             OnlineUrlBox.Text = s.OnlineUrl; OnlineKeyBox.Password = s.OnlineKey;
-            PythonBox.Text = s.Python; OcrBox.Text = s.Tesseract; OcrLanguagesBox.Text = s.OcrLanguages;
+            OcrBox.Text = s.Tesseract; OcrLanguagesBox.Text = s.OcrLanguages;
             OcrEngineBox.SelectedIndex = Math.Clamp(s.OcrEngine, 0, 2); OcrPythonBox.Text = s.OcrPython;
             OcrDeviceModeBox.SelectedIndex = Math.Clamp((int)s.OcrDeviceMode, 0, 2); OcrGpuPythonBox.Text = s.OcrGpuPython;
             SelectionKeyBox.Text = s.SelectionKey; CaptureKeyBox.Text = s.CaptureKey;
@@ -50,7 +54,7 @@ public partial class MainWindow : Window
             DeviceModeBox.SelectedIndex = (int)s.EffectiveDeviceMode; IdleMinutesBox.Text = s.IdleMinutes.ToString();
             AutoPopupCheck.IsChecked = s.AutoSelectionPopup;
             ClipboardFallbackCheck.IsChecked = s.ClipboardSelectionFallback;
-            EngineBox.SelectedIndex = Math.Clamp(s.Engine, 0, 3); OfflineCheck.IsChecked = s.Offline;
+            EngineBox.SelectedIndex = Math.Clamp(s.Engine, 0, 2); OfflineCheck.IsChecked = s.Offline;
         }
         catch (Exception) { StatusText.Text = "设置读取失败，请重新配置并保存。"; }
         RefreshStartupState();
@@ -149,6 +153,12 @@ public partial class MainWindow : Window
         StatusText.Text = Native.Register(handle, SelectionKeyBox.Text, CaptureKeyBox.Text);
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("打开 Glimpse", null, (_, _) => Dispatcher.Invoke(Reveal));
+        var captionsMenu = new System.Windows.Forms.ToolStripMenuItem("实时字幕");
+        captionsMenu.DropDownItems.Add("显示 / 隐藏字幕", null, (_, _) => Dispatcher.Invoke(LivePanel.ToggleOverlay));
+        captionsMenu.DropDownItems.Add("锁定 / 解锁字幕", null, (_, _) => Dispatcher.Invoke(LivePanel.ToggleLock));
+        captionsMenu.DropDownItems.Add("暂停 / 继续采音", null, (_, _) => Dispatcher.Invoke(LivePanel.TogglePause));
+        captionsMenu.DropDownItems.Add("停止并保存", null, (sender, args) => { _ = Dispatcher.InvokeAsync(LivePanel.StopSession); });
+        menu.Items.Add(captionsMenu);
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         performanceMenuItem = new System.Windows.Forms.ToolStripMenuItem("性能模式", PowerModeIcons.Create(false));
         powerSavingMenuItem = new System.Windows.Forms.ToolStripMenuItem("节能模式", PowerModeIcons.Create(true));
@@ -253,7 +263,12 @@ public partial class MainWindow : Window
                 : "正在切换性能模式…";
             await LocalLlm.UpdatePolicy(ReadSettings());
             if (shuttingDown) return;
-            if (mode == ModelPowerMode.Performance && EngineBox.SelectedIndex == 3)
+            if (LocalLlm.LiveSessionActive)
+            {
+                StatusText.Text = "模式已保存；语音转译任务期间保持模型加载，停止任务后恢复所选模式。";
+                return;
+            }
+            if (mode == ModelPowerMode.Performance && EngineBox.SelectedIndex == 2)
                 await PreloadSelectedModel();
             else
                 StatusText.Text = mode == ModelPowerMode.PowerSaving
@@ -264,14 +279,15 @@ public partial class MainWindow : Window
         finally { changingPowerMode = false; RefreshPowerMode(); }
     }
     private async void Capture_Click(object sender, RoutedEventArgs e) => await CaptureRegion();
-    private Settings ReadSettings() => new()
+    private Settings ReadSettings()
     {
+        var settings = new Settings
+        {
         ApiUrl = ApiUrlBox.Text.Trim(),
         Model = ModelBox.Text.Trim(),
         ApiKey = KeyBox.Password,
         OnlineUrl = OnlineUrlBox.Text.Trim(),
         OnlineKey = OnlineKeyBox.Password,
-        Python = PythonBox.Text.Trim(),
         Tesseract = OcrBox.Text.Trim(),
         OcrLanguages = OcrLanguagesBox.Text.Trim(),
         OcrEngine = OcrEngineBox.SelectedIndex,
@@ -293,7 +309,11 @@ public partial class MainWindow : Window
         ClipboardSelectionFallback = ClipboardFallbackCheck.IsChecked == true,
         DarkMode = DarkModeCheck.IsChecked == true,
         ReadingFontSize = TextSizeSlider.Value
-    };
+        };
+        LivePanel.CopyPreferences(settings);
+        MediaPanel.CopyPreferences(settings);
+        return settings;
+    }
     private async void DeviceMode_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded || DeviceModeBox.SelectedIndex < 0) return;
@@ -305,7 +325,7 @@ public partial class MainWindow : Window
             saved.UseGpu = DeviceModeBox.SelectedIndex != 2;
             saved.Save();
             preload?.Cancel();
-            if (EngineBox.SelectedIndex != 3)
+            if (EngineBox.SelectedIndex != 2)
             {
                 StatusText.Text = "本地运行模式已保存，选择 Hy-MT2 时生效。";
                 return;
@@ -337,7 +357,7 @@ public partial class MainWindow : Window
     private async Task PreloadSelectedModel()
     {
         preload?.Cancel();
-        if (EngineBox.SelectedIndex != 3 || Dispatcher.HasShutdownStarted) return;
+        if (EngineBox.SelectedIndex != 2 || Dispatcher.HasShutdownStarted) return;
         using var loading = new CancellationTokenSource();
         preload = loading;
         try
@@ -373,12 +393,12 @@ public partial class MainWindow : Window
         TranslateButton.IsEnabled = false; ResultText.Clear(); StatusText.Text = "正在翻译…"; StatusText.ToolTip = null; var watch = Stopwatch.StartNew();
         try
         {
-            var progress = new Progress<string>(message => { if (current == generation) { StatusText.Text = message; StatusText.ToolTip = s.Engine == 3 ? LocalLlm.GpuFailureDetails : null; } });
+            var progress = new Progress<string>(message => { if (current == generation) { StatusText.Text = message; StatusText.ToolTip = s.Engine == 2 ? LocalLlm.GpuFailureDetails : null; } });
             var result = await Translation.Translate(text, from, to, s, token, progress);
             if (current != generation) return;
-            StatusText.ToolTip = s.Engine == 3 ? LocalLlm.GpuFailureDetails : null;
+            StatusText.ToolTip = s.Engine == 2 ? LocalLlm.GpuFailureDetails : null;
             ResultText.Text = result; StatusText.Text = $"完成 · {watch.Elapsed.TotalSeconds:F1} 秒 · {((ComboBoxItem)EngineBox.Items[s.Engine]).Content}";
-            if (s.Engine == 3 && LocalLlm.LastTiming is { } timing)
+            if (s.Engine == 2 && LocalLlm.LastTiming is { } timing)
                 StatusText.Text = $"完成 · {timing.Backend} · 加载 {timing.LoadSeconds:F1} 秒 · 翻译 {timing.TranslationSeconds:F1} 秒 · Hy-MT2 · "
                     + LocalLlm.ResidencyDescription
                     + (timing.RouteNote.Length > 0 ? $" · {timing.RouteNote}" : "");
@@ -470,33 +490,24 @@ public partial class MainWindow : Window
             if (!shuttingDown) { TranslateButton.IsEnabled = true; Reveal(); }
         }
     }
-    private async void CheckLocal_Click(object sender, RoutedEventArgs e)
-    {
-        try { StatusText.Text = "正在检查…"; StatusText.Text = await LocalTools.Worker(ReadSettings(), "check", null, CancellationToken.None); }
-        catch (Exception ex) { StatusText.Text = "检查失败：" + ex.Message; }
-    }
     private async void Engine_Changed(object sender, SelectionChangedEventArgs e)
     {
         selectionPopup?.Dismiss(force: true);
         preload?.Cancel();
         int current = ++generation; pending?.Cancel(); TranslateButton.IsEnabled = true;
-        if (EngineBox.SelectedIndex == 3) { await PreloadSelectedModel(); return; }
+        if (EngineBox.SelectedIndex == 2) { await PreloadSelectedModel(); return; }
         await LocalLlm.Unload();
-        if (current == generation) StatusText.Text = "已切换引擎；Hy-MT2 如已加载，则已释放。";
+        if (current == generation) StatusText.Text = LocalLlm.LiveSessionActive
+            ? "已切换工作台引擎；语音转译任务继续使用本地 Hy-MT2，停止任务后应用设备变更。"
+            : "已切换引擎；Hy-MT2 如已加载，则已释放。";
     }
     private async void UnloadLocal_Click(object sender, RoutedEventArgs e)
     {
+        if (LocalLlm.LiveSessionActive) { StatusText.Text = "请先停止实时字幕或音视频转译，再卸载本地模型。"; return; }
         preload?.Cancel();
         selectionPopup?.Dismiss(force: true);
         int current = ++generation; pending?.Cancel(); TranslateButton.IsEnabled = true;
         await LocalLlm.Unload();
         if (current == generation) StatusText.Text = "Hy-MT2 已卸载，模型文件保留；下次翻译时重新加载。";
-    }
-    private async void ImportModel_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Argos Translate 模型|*.argosmodel" };
-        if (dialog.ShowDialog() != true) return;
-        try { StatusText.Text = "正在导入…"; StatusText.Text = await LocalTools.Worker(ReadSettings(), "install", dialog.FileName, CancellationToken.None); }
-        catch (Exception ex) { StatusText.Text = "导入失败：" + ex.Message; }
     }
 }

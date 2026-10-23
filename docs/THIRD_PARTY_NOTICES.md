@@ -1,5 +1,16 @@
 # Local English to Chinese model
 
+## Local English speech recognition (development draft)
+
+- faster-whisper: https://github.com/SYSTRAN/faster-whisper, pinned 1.2.1, MIT. CTranslate2 is pinned to 4.8.3. Package licenses remain in the private speech environment; resolved versions and artifact hashes are in `worker/speech-requirements.lock.txt`.
+- Distil-Whisper Large v3.5: https://huggingface.co/distil-whisper/distil-large-v3.5 ; official CT2 weights: https://huggingface.co/distil-whisper/distil-large-v3.5-ct2 , revision `9793ccc07920e0f830e1dba0343efcdf0ef8c903`, MIT. Unmodified `model.bin` is 1,512,927,867 bytes; upstream LFS SHA-256 `c58b88b8585ffcd2135fddaaf421ce72cb223b32edea70d156aed1dea319a119`. The upstream README is retained with the downloaded weights; the installer writes a model manifest without loading weights.
+- Silero VAD is supplied by the pinned faster-whisper wheel; its upstream attribution is retained in that package. ONNX Runtime CPU performs VAD; CTranslate2 performs GPU/CPU ASR. NVIDIA cuBLAS 12.9.2.10, cuDNN 9.27.0.42 and their runtime dependencies retain NVIDIA's own terms in their package license directories.
+- Process audio capture follows the Windows API demonstrated by Microsoft's ApplicationLoopback sample: https://learn.microsoft.com/en-us/samples/microsoft/windows-classic-samples/applicationloopbackaudio-sample/ . No full-system fallback or virtual audio driver is installed.
+- Source selection enumerates Core Audio output sessions through `IAudioSessionManager2`; explicitly selected global capture uses `PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE` for Glimpse and its workers. Application capture never automatically changes to global scope.
+- The speech environment/models are currently local development assets, excluded from Git and not included in the published preview installer.
+- Local audio/video import reuses PyAV and its FFmpeg libraries from the same pinned speech environment for decoding/resampling; no separate FFmpeg executable is downloaded. Their upstream license/notice files remain with the installed packages and must accompany any future bundled distribution. File import and capture share the same unmodified recognition and translation weights.
+- The inherited Whisper MIT text is preserved in `docs/licenses/DistilWhisper-LICENSE.txt` (upstream https://github.com/openai/whisper/blob/main/LICENSE).
+
 ## Local screenshot OCR
 
 - RapidOCR: https://github.com/RapidAI/RapidOCR ; PyPI `rapidocr-onnxruntime==1.4.4`, package metadata declares Apache-2.0.
@@ -20,35 +31,4 @@
 - Exact download URLs and archive hashes are recorded in `tools/install_hymt.py`; downloaded assets stay outside Git in `.runtime/` and `models/`.
 - Upstream model files are unmodified. Glimpse adds a private local server integration, preloads on startup/engine selection, and translates using the model author's documented translation prompt.
 
-## Argos English → Chinese (retained)
-
-- Package: `translate-en_zh-1_9.argosmodel`, version 1.9, English → Chinese.
-- Source: https://data.argosopentech.com/argospm/v1/translate-en_zh-1_9.argosmodel
-- Package size: 70,743,021 bytes.
-- SHA-256: `433e7c4f034d87fbe2353161e05f18646d7999452f801a4e1f0378522b9850ab`.
-- Package author's clarification about Argos model binaries: https://github.com/argosopentech/argos-translate/issues/533 (MIT/CC0).
-- The actual English–Chinese package README additionally identifies the original OPUS model as **CC BY 4.0**. Preserve that upstream attribution as well; the Argos software license does not replace upstream notices.
-
-## Attribution supplied in the model package
-
-English - Chinese version 1.9
-
-Authors: Jörg Tiedemann and Santhosh Thottingal
-
-Title: “OPUS-MT — Building open translation services for the World”
-
-Book Title: Proceedings of the 22nd Annual Conference of the European Association for Machine Translation (EAMT)
-
-Year: 2020
-
-Location: Lisbon, Portugal
-
-The original OPUS model from which this packaged model is derived is licensed CC-BY 4.0.
-
-License: https://creativecommons.org/licenses/by/4.0/
-
-The packaged translation weights and SentencePiece tokenizer are installed without modification. Glimpse uses spaCy's blank language tokenizer and rule-based sentencizer for sentence boundaries. It does not load the package's legacy Stanza checkpoint or download sentence-boundary models. The package's original README and tokenizer resources remain unchanged inside `models/installed/translate-en_zh-1_9/`. Previously generated Stanza compatibility metadata is no longer used.
-
-## Runtime dependencies
-
-Argos Translate 1.11.0 is the translation wrapper; CTranslate2 4.8.3 is the inference engine. The exact Python dependency versions installed for this local setup are recorded in `worker/requirements.lock.txt`. Their upstream license files are retained in the environment. A distributable bundle must include the corresponding notices alongside its runtime and model assets.
+Historical installer notices: [0.1.0-preview.1](releases/0.1.0-preview.1-legacy-notices.md).

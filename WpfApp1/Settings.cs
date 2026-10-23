@@ -14,7 +14,6 @@ public sealed class Settings
     public string ApiUrl { get; set; } = "";
     public string Model { get; set; } = "";
     public string OnlineUrl { get; set; } = "";
-    public string Python { get; set; } = FindLocalPython();
     public string Tesseract { get; set; } = "tesseract";
     public string OcrLanguages { get; set; } = "eng";
     public int OcrEngine { get; set; }
@@ -34,6 +33,16 @@ public sealed class Settings
         ? mode : UseGpu ? LocalDeviceMode.Auto : LocalDeviceMode.Cpu;
     public int IdleMinutes { get; set; } = 5;
     public ModelPowerMode PowerMode { get; set; } = ModelPowerMode.Performance;
+    public string SpeechPython { get; set; } = FindPython(".runtime", "speech-env");
+    public string SpeechModel { get; set; } = FindProjectFolder("models", "speech", "distil-large-v3.5");
+    public LocalDeviceMode SpeechDeviceMode { get; set; } = LocalDeviceMode.PreferGpu;
+    public bool LiveGpuOnly { get; set; } = true;
+    public bool MediaGpuOnly { get; set; } = true;
+    public string MediaOutputFolder { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Glimpse", "Transcripts");
+    public bool CaptionBilingual { get; set; }
+    public double CaptionFontSize { get; set; } = 28;
+    public double CaptionBackgroundOpacity { get; set; } = 0.35;
+    public string SpeechSessionsFolder { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Glimpse", "Sessions");
     public bool AutoSelectionPopup { get; set; } = true;
     public bool ClipboardSelectionFallback { get; set; } = true;
     public bool DarkMode { get; set; }
@@ -53,16 +62,14 @@ public sealed class Settings
         }
         return Path.Combine(AppContext.BaseDirectory, relative);
     }
-    private static string FindLocalPython()
+    private static string FindProjectFolder(params string[] parts)
     {
-        var portable = FindProjectAsset(".venv", "python.exe");
-        if (File.Exists(portable)) return portable;
         for (var folder = new DirectoryInfo(AppContext.BaseDirectory); folder != null; folder = folder.Parent)
         {
-            var executable = Path.Combine(folder.FullName, ".venv", "Scripts", "python.exe");
-            if (File.Exists(executable)) return executable;
+            var candidate = Path.Combine(folder.FullName, Path.Combine(parts));
+            if (Directory.Exists(candidate)) return candidate;
         }
-        return "python";
+        return Path.Combine(AppContext.BaseDirectory, Path.Combine(parts));
     }
     private static string FindPython(params string[] parts)
     {
@@ -80,13 +87,12 @@ public sealed class Settings
             string normalized = configured.Replace('/', '\\');
             bool managed = string.IsNullOrWhiteSpace(configured) || !File.Exists(configured)
                 || normalized.Contains("\\.runtime\\", StringComparison.OrdinalIgnoreCase)
-                || normalized.Contains("\\.venv\\", StringComparison.OrdinalIgnoreCase)
                 || normalized.EndsWith("\\models\\hy-mt2\\Hy-MT2-1.8B-Q4_K_M.gguf", StringComparison.OrdinalIgnoreCase);
             return managed && File.Exists(packaged) ? packaged : configured;
         }
-        result.Python = Resolve(result.Python, bundled.Python);
         result.OcrPython = Resolve(result.OcrPython, bundled.OcrPython);
         result.OcrGpuPython = Resolve(result.OcrGpuPython, bundled.OcrGpuPython);
+        result.SpeechPython = Resolve(result.SpeechPython, bundled.SpeechPython);
         result.LlamaServer = Resolve(result.LlamaServer, bundled.LlamaServer);
         result.CpuLlamaServer = Resolve(result.CpuLlamaServer, bundled.CpuLlamaServer);
         result.LocalModel = Resolve(result.LocalModel, bundled.LocalModel);
@@ -95,9 +101,7 @@ public sealed class Settings
     {
         if (!File.Exists(FilePath))
         {
-            var defaults = new Settings { Offline = true };
-            defaults.Engine = File.Exists(defaults.LocalModel) && (File.Exists(defaults.LlamaServer) || File.Exists(defaults.CpuLlamaServer)) ? 3 : 2;
-            return defaults;
+            return new Settings { Offline = true, Engine = 2 };
         }
         var result = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new();
         ResolveInstalledAssets(result);

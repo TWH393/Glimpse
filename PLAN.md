@@ -5,7 +5,7 @@
 ## 草稿实现调整
 
 - 产品名 Glimpse，当前项目位于 D:\Glimpse，保留已在 Visual Studio 打开的 WpfApp1 项目目录。
-- OCR 原型采用外部 Tesseract 命令行；离线翻译使用基于 CTranslate2 的 Argos Translate。
+- 本地 OCR 使用 RapidOCR，另保留 Windows OCR/Tesseract；离线翻译统一使用 Hy-MT2，提供 CPU/NVIDIA GPU 路径。
 - 本地工作进程目前每次请求启动、只处理一个 JSON 请求，尚未改成长驻协议。
 - 当前提供手动模型导入，下载管理、运行时打包和完整分段流程仍是后续目标。
 - API、在线服务、本地模型的真实译文与质量不得以模拟测试代替验收。

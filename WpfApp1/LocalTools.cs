@@ -68,13 +68,4 @@ public static class LocalTools
             throw new InvalidOperationException("Windows OCR 不可用：" + result.RootElement.GetProperty("error").GetString());
         return result.RootElement.GetProperty("text").GetString() ?? "";
     }
-    public static async Task<string> Worker(Settings settings, string action, string? path, CancellationToken token, string text = "", string from = "en", string to = "zh")
-    {
-        var script = Path.Combine(AppContext.BaseDirectory, "worker", "translate.py");
-        var request = JsonSerializer.Serialize(new { action, path, text, source = from, target = to });
-        var output = await Run(settings.Python, new[] { "-X", "utf8", script }, request, token);
-        using var json = JsonDocument.Parse(output);
-        if (!json.RootElement.GetProperty("ok").GetBoolean()) throw new InvalidOperationException(json.RootElement.GetProperty("error").GetString());
-        return json.RootElement.GetProperty("text").GetString() ?? "";
-    }
 }

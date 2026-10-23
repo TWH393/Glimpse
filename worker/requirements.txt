@@ -1,2 +1,0 @@
-# Prototype dependency; lock the tested transitive environment before release.
-argostranslate==1.11.0

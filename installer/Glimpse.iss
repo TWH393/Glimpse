@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0-preview.1"
+  #define AppVersion "0.2.0-preview.1"
 #endif
 #ifndef PayloadDir
   #error PayloadDir must be specified by tools/build_release.py
@@ -35,7 +35,7 @@ SlicesPerDisk=1
 CloseApplications=yes
 RestartApplications=no
 UninstallDisplayName=Glimpse {#AppVersion}
-VersionInfoVersion=0.1.0.0
+VersionInfoVersion=0.2.0.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

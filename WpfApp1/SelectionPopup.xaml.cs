@@ -140,15 +140,15 @@ public partial class SelectionPopup : Window
             Trace("card-expanded");
             await System.Windows.Threading.Dispatcher.Yield(DispatcherPriority.Render);
             if (current != revision || token.IsCancellationRequested) return;
-            var progress = new Progress<string>(message => { if (current == revision) { PopupStatus.Text = message; PopupStatus.ToolTip = configuration.Engine == 3 ? LocalLlm.GpuFailureDetails : null; } });
+            var progress = new Progress<string>(message => { if (current == revision) { PopupStatus.Text = message; PopupStatus.ToolTip = configuration.Engine == 2 ? LocalLlm.GpuFailureDetails : null; } });
             string result = await Translation.Translate(text, sourceLanguage, targetLanguage, configuration, token, progress);
             if (current != revision) return;
-            PopupStatus.ToolTip = configuration.Engine == 3 ? LocalLlm.GpuFailureDetails : null;
+            PopupStatus.ToolTip = configuration.Engine == 2 ? LocalLlm.GpuFailureDetails : null;
             TranslatedText.Text = result; PopupCopy.IsEnabled = true;
             Trace("translation-displayed");
             PopupTranslate.Content = "重新翻译";
             PopupStatus.Text = $"{engineName} · {watch.Elapsed.TotalSeconds:F1} 秒";
-            if (configuration.Engine == 3 && LocalLlm.LastTiming is { } timing)
+            if (configuration.Engine == 2 && LocalLlm.LastTiming is { } timing)
                 PopupStatus.Text = $"Hy-MT2 · {timing.Backend} · 加载 {timing.LoadSeconds:F1} 秒 · 翻译 {timing.TranslationSeconds:F1} 秒"
                     + $" · {LocalLlm.ResidencyDescription}"
                     + (timing.RouteNote.Length > 0 ? $" · {timing.RouteNote}" : "");

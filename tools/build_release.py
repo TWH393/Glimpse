@@ -35,7 +35,7 @@ def run(command):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", default="0.1.0-preview.1")
+    parser.add_argument("--version", default="0.2.0-preview.1")
     parser.add_argument("--compiler", type=Path, default=Path(r"D:\Program Files\Inno Setup 7\ISCC.exe"))
     parser.add_argument("--reuse-runtimes", action="store_true", help="Reuse staged runtimes and models for the same version")
     args = parser.parse_args()
@@ -45,6 +45,15 @@ def main():
     output = ROOT / "artifacts" / "release" / version
     payload = output / "payload"
     assets = output / "assets"
+    if args.reuse_runtimes:
+        staged = payload / "bundle.json"
+        if not staged.is_file() or json.loads(staged.read_text(encoding="utf-8")).get("bundle_schema") != 2:
+            raise RuntimeError("Staged runtimes use an obsolete layout. Build without --reuse-runtimes.")
+    elif payload.exists():
+        # Only remove this generated version's payload, never the source runtimes.
+        if payload.resolve().parent != output.resolve() or not payload.resolve().is_relative_to((ROOT / "artifacts" / "release").resolve()):
+            raise RuntimeError("Unsafe staging path")
+        shutil.rmtree(payload)
     output.mkdir(parents=True, exist_ok=True)
     assets.mkdir(exist_ok=True)
     run(["dotnet", "publish", "WpfApp1/WpfApp1.csproj", "-c", "Release", "-r", "win-x64",
@@ -54,18 +63,18 @@ def main():
     for name in (() if args.reuse_runtimes else ("llama", "llama-cpu")):
         print(f"Staging {name}", flush=True)
         copy_tree(ROOT / ".runtime" / name, payload / ".runtime" / name)
-    for name, destination in (() if args.reuse_runtimes else ((".venv", ".venv"), (".runtime/ocr-env", ".runtime/ocr-env"),
-                              (".runtime/ocr-gpu-env", ".runtime/ocr-gpu-env"))):
+    for name, destination in (() if args.reuse_runtimes else ((".runtime/ocr-env", ".runtime/ocr-env"),
+                              (".runtime/ocr-gpu-env", ".runtime/ocr-gpu-env"), (".runtime/speech-env", ".runtime/speech-env"))):
         print(f"Staging relocatable Python: {name}", flush=True)
         copy_python(ROOT / name, payload / destination)
-    for name in (() if args.reuse_runtimes else ("installed", "hy-mt2")):
+    for name in (() if args.reuse_runtimes else ("hy-mt2", "speech")):
         copy_tree(ROOT / "models" / name, payload / "models" / name)
     copy_tree(ROOT / "docs", payload / "docs")
     for name in ("README.md", "README.en.md"):
         shutil.copy2(ROOT / name, payload / name)
-    manifest = {"version": version, "platform": "win-x64", "offline": True,
-                "python_layout": "standalone", "translation": ["Hy-MT2-1.8B-Q4_K_M", "Argos-en-zh-1.9"],
-                "ocr": "RapidOCR-1.4.4", "inference_tested": False}
+    manifest = {"bundle_schema": 2, "version": version, "platform": "win-x64", "offline": True,
+                "python_layout": "standalone", "translation": ["Hy-MT2-1.8B-Q4_K_M"],
+                "speech": "Distil-Whisper-large-v3.5", "ocr": "RapidOCR-1.4.4", "inference_tested": False}
     (payload / "bundle.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     if not args.compiler.is_file():
         raise RuntimeError(f"Inno Setup compiler not found: {args.compiler}")
@@ -75,7 +84,7 @@ def main():
         f"Glimpse {version} - Windows x64 完整离线预览版\n\n"
         "下载同一版本的 setup.exe 和全部 .bin 文件，放在同一个文件夹，运行 setup.exe。\n"
         "不要单独打开 .bin，不需要合并或自行解压。安装后通过桌面或开始菜单打开 Glimpse。\n"
-        "自带 .NET、Hy-MT2、Argos、中英文 OCR 及 CPU/NVIDIA GPU 环境。\n"
+        "自带 .NET、Hy-MT2、英语语音识别、中英文 OCR 及 CPU/NVIDIA GPU 环境。\n"
         "API/在线翻译仍需要自行配置服务。没有代码签名证书，发布的是开发预览版。\n"
         "安装及真实翻译/OCR/其他显卡兼容性尚未验收；可按实际设备切换 CPU 模式。\n"
     )

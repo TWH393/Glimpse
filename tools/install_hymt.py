@@ -83,7 +83,7 @@ def main():
     settings = json.loads(config.read_text(encoding="utf-8-sig")) if config.exists() else {}
     if config.exists():
         shutil.copyfile(config, config.with_suffix(".json.before-hymt"))
-    settings.update(Engine=3, Offline=True, LocalModel=str(files[0]), CpuLlamaServer=str(cpu_server))
+    settings.update(Engine=2, Offline=True, LocalModel=str(files[0]), CpuLlamaServer=str(cpu_server))
     if options.cpu_only:
         settings.update(DeviceMode=2, UseGpu=False)
     else:
@@ -96,7 +96,7 @@ def main():
     temporary.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
     temporary.replace(config)
     print("Installed Hy-MT2 Q4 and CPU runtime" + ("." if options.cpu_only else " plus CUDA runtime.")
-          + " Argos retained. No model was loaded or tested.", flush=True)
+          + " No model was loaded or tested.", flush=True)
 
 
 if __name__ == "__main__":

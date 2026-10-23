@@ -13,14 +13,10 @@ public static class Translation
     private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(100) };
     public static async Task<string> Translate(string text, string from, string to, Settings settings, CancellationToken token, IProgress<string>? progress = null)
     {
-        if (settings.Offline && settings.Engine != 2 && settings.Engine != 3) throw new InvalidOperationException("严格离线模式下请选择离线引擎。");
+        if (settings.Engine is < 0 or > 2) throw new InvalidOperationException("请选择有效的翻译引擎。");
+        if (settings.Offline && settings.Engine != 2) throw new InvalidOperationException("严格离线模式下请选择离线引擎。");
         if (text.Length > 16000) throw new InvalidOperationException("草稿版单次最多 16,000 字符，请分段翻译；未截断原文。");
-        if (settings.Engine == 3) return await LocalLlm.Translate(text, from, to, settings, token, progress);
-        if (settings.Engine == 2)
-        {
-            if (from == "auto") throw new InvalidOperationException("离线翻译请明确选择原文语言。");
-            return await LocalTools.Worker(settings, "translate", null, token, text, from, to);
-        }
+        if (settings.Engine == 2) return await LocalLlm.Translate(text, from, to, settings, token, progress);
         bool api = settings.Engine == 0;
         var address = api ? settings.ApiUrl : settings.OnlineUrl.TrimEnd('/') + "/translate";
         if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || (uri.Scheme != "https" && !(uri.Scheme == "http" && uri.IsLoopback)))

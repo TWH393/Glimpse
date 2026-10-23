@@ -37,7 +37,7 @@ await Mock(1, "{\"translatedText\":\"你好\"}", b => b.GetProperty("q").GetStri
 await Mock(0, "{}", _ => true, 429);
 await Reject(() => Translation.Translate("Hello", "en", "zh", new Settings { Offline = true }, CancellationToken.None), "严格离线");
 await Reject(() => Translation.Translate(new string('x', 16001), "en", "zh", new Settings(), CancellationToken.None), "16,000");
-await Reject(() => Translation.Translate("Hello", "auto", "zh", new Settings { Engine = 2 }, CancellationToken.None), "明确选择");
+await Reject(() => Translation.Translate("Hello", "en", "zh", new Settings { Engine = -1 }, CancellationToken.None), "有效的翻译引擎");
 await Reject(() => Translation.Translate("Hello", "en", "zh", new Settings { ApiUrl = "http://example.com", Model = "x" }, CancellationToken.None), "HTTPS");
 var cancelled = new CancellationToken(true);
 try { await Translation.Translate("Hi", "en", "zh", new Settings { ApiUrl = "http://127.0.0.1:1/", Model = "x" }, cancelled); throw new Exception("Cancellation ignored"); }
