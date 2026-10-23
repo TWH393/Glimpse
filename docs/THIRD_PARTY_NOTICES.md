@@ -7,7 +7,7 @@
 - Silero VAD is supplied by the pinned faster-whisper wheel; its upstream attribution is retained in that package. ONNX Runtime CPU performs VAD; CTranslate2 performs GPU/CPU ASR. NVIDIA cuBLAS 12.9.2.10, cuDNN 9.27.0.42 and their runtime dependencies retain NVIDIA's own terms in their package license directories.
 - Process audio capture follows the Windows API demonstrated by Microsoft's ApplicationLoopback sample: https://learn.microsoft.com/en-us/samples/microsoft/windows-classic-samples/applicationloopbackaudio-sample/ . No full-system fallback or virtual audio driver is installed.
 - Source selection enumerates Core Audio output sessions through `IAudioSessionManager2`; explicitly selected global capture uses `PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE` for Glimpse and its workers. Application capture never automatically changes to global scope.
-- The speech environment/models are currently local development assets, excluded from Git and not included in the published preview installer.
+- The speech environment/models are installation assets excluded from Git and included in the complete offline preview installer starting with `v0.2.0-preview.1`.
 - Local audio/video import reuses PyAV and its FFmpeg libraries from the same pinned speech environment for decoding/resampling; no separate FFmpeg executable is downloaded. Their upstream license/notice files remain with the installed packages and must accompany any future bundled distribution. File import and capture share the same unmodified recognition and translation weights.
 - The inherited Whisper MIT text is preserved in `docs/licenses/DistilWhisper-LICENSE.txt` (upstream https://github.com/openai/whisper/blob/main/LICENSE).
 

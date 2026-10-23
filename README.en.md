@@ -8,7 +8,7 @@ A Windows translator with selected-text translation, screenshot OCR, application
 
 Download `setup.exe` and **all** `.bin` parts from [v0.2.0-preview.1](https://github.com/TWH393/Glimpse/releases/tag/v0.2.0-preview.1). Keep them together and run `setup.exe`; do not merge or extract the parts.
 
-This release contains **1 installer + 5 parts, approximately 6.7 GB**. Checksums are provided in the `SHA256SUMS.txt` release attachment.
+This release contains **1 installer + 5 parts, approximately 6.7 GB**. All uploaded asset sizes and SHA-256 digests were verified against GitHub. Checksums are provided in the `SHA256SUMS.txt` release attachment.
 
 **Development preview.** The offline bundle includes the app, Hy-MT2, English speech recognition, OCR, and CPU/NVIDIA GPU runtimes. Installation is per-user without administrator access. Personal settings and keys are excluded. Release compilation, 13 protocol/configuration checks, a GPU file-translation sample and 6 live-ASR regression cases passed. Real application audio capture, full UI behavior and cross-device installation still require validation.
 
