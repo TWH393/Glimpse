@@ -39,10 +39,16 @@
                             <CheckBox x:Name="BilingualCheck" Content="显示中英双语" VerticalAlignment="Center" Click="Options_Click" />
                         </WrapPanel>
                         <WrapPanel Margin="0,12,0,0">
-                            <TextBlock Text="字幕字号" VerticalAlignment="Center" Margin="0,0,8,0" /><Slider x:Name="CaptionSize" Width="110" Minimum="16" Maximum="60" Value="28" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="Options_Changed" VerticalAlignment="Center" />
-                            <TextBlock Text="背景不透明度" VerticalAlignment="Center" Margin="20,0,8,0" /><Slider x:Name="CaptionOpacity" Width="110" Minimum="0" Maximum="0.85" Value="0.35" ValueChanged="Options_Changed" VerticalAlignment="Center" ToolTip="0 为完全透明，向右增加黑色底板浓度" />
-                            <Button Content="保存字幕设置" Click="SaveOptions_Click" Margin="15,0,0,0" />
+                            <TextBlock Text="字幕字号" VerticalAlignment="Center" Margin="0,0,8,0" /><Slider x:Name="CaptionSize" Width="110" Minimum="16" Maximum="72" Value="28" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="Options_Changed" VerticalAlignment="Center" />
+                            <TextBlock Text="背景不透明度" VerticalAlignment="Center" Margin="20,0,8,0" /><Slider x:Name="CaptionOpacity" Width="110" Minimum="0" Maximum="1" Value="0.35" ValueChanged="Options_Changed" VerticalAlignment="Center" ToolTip="0 为完全透明，向右增加底板浓度" />
+                            <TextBlock Text="文字不透明度" VerticalAlignment="Center" Margin="20,0,8,0" /><Slider x:Name="CaptionTextOpacity" Width="110" Minimum="0.25" Maximum="1" Value="1" ValueChanged="Options_Changed" VerticalAlignment="Center" />
                         </WrapPanel>
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button Click="CaptionTextColor_Click" Margin="0,0,8,0"><StackPanel Orientation="Horizontal"><Rectangle x:Name="CaptionTextColorSwatch" Width="13" Height="13" Fill="White" Stroke="#8490A5" Margin="0,0,7,0" /><TextBlock Text="文字颜色" /></StackPanel></Button>
+                            <Button Click="CaptionBackgroundColor_Click" Margin="0,0,8,0"><StackPanel Orientation="Horizontal"><Rectangle x:Name="CaptionBackgroundColorSwatch" Width="13" Height="13" Fill="Black" Stroke="#8490A5" Margin="0,0,7,0" /><TextBlock Text="底板颜色" /></StackPanel></Button>
+                            <Button Content="保存字幕设置" Click="SaveOptions_Click" />
+                        </WrapPanel>
+                        <TextBlock Text="外观即时生效并保存，也可在字幕窗顶部点“外观”调整。拖动顶部栏移动，拖动四边或四角缩放；每次打开在当前屏幕下方居中，保留上次尺寸。" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,9,0,0" />
                         <TextBlock Text="仅 GPU 同时约束识别和翻译，失败不回退 CPU；取消勾选后才使用原设备选择。会话最多自动重启一次，第二次失败停止并保存。变更下次会话生效。" Style="{StaticResource Hint}" Margin="0,9,0,0" />
                     </StackPanel>
                 </Expander>

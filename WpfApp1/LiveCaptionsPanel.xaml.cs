@@ -14,12 +14,20 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
     private CaptionOverlay? overlay;
     private bool initialized, stopping, starting, disposed, refreshing;
     private string? lastTranscript;
+    private string captionForeground = "#FFFFFF", captionBackground = "#000000";
+    private double captionWindowWidth = 850, captionWindowHeight = 230;
+    private readonly System.Windows.Threading.DispatcherTimer preferencesSave = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private string sessionsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Glimpse", "Sessions");
     public Func<Settings>? TranslationSettings { get; set; }
     public bool Running => session != null;
     public LiveCaptionsPanel()
     {
         InitializeComponent();
+        preferencesSave.Tick += (_, _) =>
+        {
+            preferencesSave.Stop();
+            try { SavePreferences(); } catch (Exception ex) { SessionStatus.Text = "保存字幕设置失败：" + ex.Message; }
+        };
         try
         {
             var s = Settings.Load();
@@ -27,9 +35,9 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
             SpeechDeviceBox.SelectedIndex = Math.Clamp((int)s.SpeechDeviceMode, 0, 2);
             GpuOnlyCheck.IsChecked = s.LiveGpuOnly;
             SpeechDeviceBox.IsEnabled = !s.LiveGpuOnly;
-            BilingualCheck.IsChecked = s.CaptionBilingual;
-            CaptionSize.Value = double.IsFinite(s.CaptionFontSize) ? Math.Clamp(s.CaptionFontSize, 16, 60) : 28;
-            CaptionOpacity.Value = double.IsFinite(s.CaptionBackgroundOpacity) ? Math.Clamp(s.CaptionBackgroundOpacity, 0, 0.85) : 0.35;
+            ApplyCaptionStyle(CaptionStyle.FromSettings(s));
+            captionWindowWidth = double.IsFinite(s.CaptionWindowWidth) ? Math.Clamp(s.CaptionWindowWidth, 320, 7680) : 850;
+            captionWindowHeight = double.IsFinite(s.CaptionWindowHeight) ? Math.Clamp(s.CaptionWindowHeight, 120, 4320) : 230;
             if (!string.IsNullOrWhiteSpace(s.SpeechSessionsFolder)) sessionsFolder = s.SpeechSessionsFolder;
         }
         catch (Exception ex) { SessionStatus.Text = "读取字幕设置失败：" + ex.Message; }
@@ -43,10 +51,27 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
         s.SpeechPython = SpeechPythonBox.Text.Trim(); s.SpeechModel = SpeechModelBox.Text.Trim();
         s.SpeechDeviceMode = (LocalDeviceMode)Math.Clamp(SpeechDeviceBox.SelectedIndex, 0, 2);
         s.LiveGpuOnly = GpuOnlyCheck.IsChecked == true;
-        s.CaptionBilingual = BilingualCheck.IsChecked == true; s.CaptionFontSize = CaptionSize.Value;
-        s.CaptionBackgroundOpacity = CaptionOpacity.Value; s.SpeechSessionsFolder = sessionsFolder;
+        ReadCaptionStyle().CopyTo(s);
+        s.CaptionWindowWidth = captionWindowWidth; s.CaptionWindowHeight = captionWindowHeight;
+        s.SpeechSessionsFolder = sessionsFolder;
     }
-    private void SavePreferences() { var s = Settings.Load(); CopyPreferences(s); s.Save(); }
+    private void SavePreferences() { preferencesSave.Stop(); var s = Settings.Load(); CopyPreferences(s); s.Save(); }
+    private void QueueSavePreferences() { preferencesSave.Stop(); preferencesSave.Start(); }
+    private CaptionStyle ReadCaptionStyle() => new CaptionStyle(BilingualCheck.IsChecked == true, CaptionSize.Value,
+        CaptionOpacity.Value, CaptionTextOpacity.Value, captionForeground, captionBackground).Normalize();
+    private void ApplyCaptionStyle(CaptionStyle style)
+    {
+        bool wasInitialized = initialized; initialized = false;
+        try
+        {
+            BilingualCheck.IsChecked = style.Bilingual; CaptionSize.Value = style.FontSize;
+            CaptionOpacity.Value = style.BackgroundOpacity; CaptionTextOpacity.Value = style.TextOpacity;
+            captionForeground = style.Foreground; captionBackground = style.Background;
+            CaptionTextColorSwatch.Fill = new System.Windows.Media.SolidColorBrush(CaptionStyle.Parse(captionForeground, System.Windows.Media.Colors.White));
+            CaptionBackgroundColorSwatch.Fill = new System.Windows.Media.SolidColorBrush(CaptionStyle.Parse(captionBackground, System.Windows.Media.Colors.Black));
+        }
+        finally { initialized = wasInitialized; }
+    }
     private async Task RefreshApplications()
     {
         if (refreshing || Running || disposed) return;
@@ -84,7 +109,18 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
         if (overlay == null)
         {
             overlay = new CaptionOverlay();
-            overlay.SetOptions(BilingualCheck.IsChecked == true, CaptionSize.Value, CaptionOpacity.Value);
+            overlay.RestoreSize(captionWindowWidth, captionWindowHeight);
+            overlay.SetOptions(ReadCaptionStyle());
+            overlay.StyleChanged += style =>
+            {
+                if (disposed) return;
+                ApplyCaptionStyle(style); QueueSavePreferences();
+            };
+            overlay.DimensionsChanged += (width, height) =>
+            {
+                if (disposed) return;
+                captionWindowWidth = width; captionWindowHeight = height; QueueSavePreferences();
+            };
         }
         return overlay;
     }
@@ -135,7 +171,7 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
             await current.Start();
             if (session != current || stopping || disposed) return;
             lastTranscript = current.TranscriptPath;
-            GetOverlay().Reset(); GetOverlay().Show(); PauseButton.IsEnabled = true;
+            GetOverlay().Reset(); GetOverlay().ShowCentered(); PauseButton.IsEnabled = true;
             if (!overlay!.HotkeyAvailable) SessionStatus.Text += "；Ctrl+Alt+L 已被占用，请从托盘解锁字幕。";
         }
         catch (Exception ex)
@@ -181,8 +217,8 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
     public void TogglePause()
     { session?.TogglePause(); PauseButton.Content = session?.Paused == true ? "继续" : "暂停"; }
     private void Pause_Click(object sender, RoutedEventArgs e) => TogglePause();
-    public void ToggleOverlay() { var window = GetOverlay(); if (window.IsVisible) window.Hide(); else window.Show(); }
-    public void ToggleLock() { GetOverlay().Show(); overlay!.ToggleLock(); }
+    public void ToggleOverlay() { var window = GetOverlay(); if (window.IsVisible) window.Hide(); else window.ShowCentered(); }
+    public void ToggleLock() { GetOverlay().ShowCentered(); overlay!.ToggleLock(); }
     private void Overlay_Click(object sender, RoutedEventArgs e) => ToggleOverlay();
     private void Lock_Click(object sender, RoutedEventArgs e) => ToggleLock();
     private void Options_Click(object sender, RoutedEventArgs e) => OptionsChanged();
@@ -192,8 +228,18 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
     private void OptionsChanged()
     {
         if (!initialized) return;
-        overlay?.SetOptions(BilingualCheck.IsChecked == true, CaptionSize.Value, CaptionOpacity.Value);
-        try { SavePreferences(); } catch (Exception ex) { SessionStatus.Text = "保存字幕设置失败：" + ex.Message; }
+        overlay?.SetOptions(ReadCaptionStyle());
+        QueueSavePreferences();
+    }
+    private void CaptionTextColor_Click(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is { } owner && CaptionStyle.ChooseColor(owner, captionForeground) is { } color)
+        { captionForeground = color; ApplyCaptionStyle(ReadCaptionStyle()); OptionsChanged(); }
+    }
+    private void CaptionBackgroundColor_Click(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is { } owner && CaptionStyle.ChooseColor(owner, captionBackground) is { } color)
+        { captionBackground = color; ApplyCaptionStyle(ReadCaptionStyle()); OptionsChanged(); }
     }
     private void SaveOptions_Click(object sender, RoutedEventArgs e)
     { try { SavePreferences(); SessionStatus.Text = "字幕设置已保存；模型与设备在下次会话生效。"; } catch (Exception ex) { SessionStatus.Text = ex.Message; } }
@@ -222,5 +268,16 @@ public partial class LiveCaptionsPanel : UserControl, IDisposable
         }
         catch (Exception ex) { SessionStatus.Text = "导出失败：" + ex.Message; }
     }
-    public void Dispose() { disposed = true; session?.Dispose(); overlay?.Terminate(); }
+    public void Dispose()
+    {
+        if (disposed) return;
+        overlay?.CaptureDimensions();
+        bool save = preferencesSave.IsEnabled;
+        preferencesSave.Stop();
+        disposed = true; session?.Dispose(); overlay?.Terminate();
+        if (save)
+        {
+            try { SavePreferences(); } catch (Exception ex) { SessionStatus.Text = "保存字幕设置失败：" + ex.Message; }
+        }
+    }
 }

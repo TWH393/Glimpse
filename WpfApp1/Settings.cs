@@ -42,6 +42,11 @@ public sealed class Settings
     public bool CaptionBilingual { get; set; }
     public double CaptionFontSize { get; set; } = 28;
     public double CaptionBackgroundOpacity { get; set; } = 0.35;
+    public double CaptionTextOpacity { get; set; } = 1;
+    public string CaptionForegroundColor { get; set; } = "#FFFFFF";
+    public string CaptionBackgroundColor { get; set; } = "#000000";
+    public double CaptionWindowWidth { get; set; } = 850;
+    public double CaptionWindowHeight { get; set; } = 230;
     public string SpeechSessionsFolder { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Glimpse", "Sessions");
     public bool AutoSelectionPopup { get; set; } = true;
     public bool ClipboardSelectionFallback { get; set; } = true;
